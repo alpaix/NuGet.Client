@@ -11,7 +11,6 @@ using System.Windows;
 using NuGet.Packaging.Core;
 using NuGet.ProjectManagement;
 using NuGet.Protocol.Core.Types;
-using NuGet.Protocol.VisualStudio;
 
 namespace NuGet.PackageManagement.UI
 {

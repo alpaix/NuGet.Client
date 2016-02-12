@@ -12,7 +12,6 @@ using NuGet.Packaging.Core;
 using NuGet.ProjectManagement;
 using NuGet.ProjectManagement.Projects;
 using NuGet.Protocol.Core.Types;
-using NuGet.Protocol.VisualStudio;
 using NuGet.Resolver;
 using Task = System.Threading.Tasks.Task;
 
@@ -86,7 +85,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
         {
             try
             {
-                var actions = await PackageManager.PreviewInstallPackageAsync(project, identity, resolutionContext, projectContext, ActiveSourceRepository, null, CancellationToken.None);
+                var actions = await PackageManager.PreviewInstallPackageAsync(project, identity, resolutionContext, projectContext, PrimarySourceRepositories, null, CancellationToken.None);
 
                 if (isPreview)
                 {
@@ -127,7 +126,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
         {
             try
             {
-                var actions = await PackageManager.PreviewInstallPackageAsync(project, packageId, resolutionContext, projectContext, ActiveSourceRepository, null, CancellationToken.None);
+                var actions = await PackageManager.PreviewInstallPackageAsync(project, packageId, resolutionContext, projectContext, null, PrimarySourceRepositories, CancellationToken.None);
 
                 if (isPreview)
                 {
@@ -165,22 +164,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
                 return;
             }
 
-            var resource = ActiveSourceRepository.GetResource<PackageMetadataResource>();
-            if (resource == null)
-            {
-                return;
-            }
-
-            var metadata = ThreadHelper.JoinableTaskFactory.Run(async delegate
-            {
-                var result = await resource.GetMetadataAsync(
-                    Id,
-                    includePrerelease: true,
-                    includeUnlisted: false,
-                    token: Token);
-                return result;
-            });
-
+            var metadata = ThreadHelper.JoinableTaskFactory.Run(() => GetPackagesFromRemoteSourceAsync(Id, includePrerelease: true));
             if (!metadata.Any())
             {
                 return;

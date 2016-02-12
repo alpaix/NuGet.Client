@@ -9,7 +9,7 @@ namespace NuGet.PackageManagement.UI
     /// <summary>
     /// Contract for a generalized package metadata provider associated with a package source(s).
     /// </summary>
-    public interface IPackageMetadataProvider
+    internal interface IPackageMetadataProvider
     {
         /// <summary>
         /// Retrieves a package metadata of a specific version along with list of all available versions
@@ -32,7 +32,7 @@ namespace NuGet.PackageManagement.UI
             bool includePrerelease, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Retrieves a list of all available packages.
+        /// Retrieves a list of metadata objects of all available versions for given package id.
         /// </summary>
         /// <param name="packageId">Desired package Id</param>
         /// <param name="includePrerelease">Filters pre-release versions</param>
