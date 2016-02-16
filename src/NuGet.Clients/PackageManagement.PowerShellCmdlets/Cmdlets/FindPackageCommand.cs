@@ -7,6 +7,7 @@ using System.Linq;
 using System.Management.Automation;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
+using NuGet.PackageManagement.UI;
 using NuGet.Versioning;
 
 namespace NuGet.PackageManagement.PowerShellCmdlets
@@ -135,7 +136,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
 
         protected void FindPackageStartWithId(bool excludeVersionInfo)
         {
-            var packageIds = ThreadHelper.JoinableTaskFactory.Run(
+            var packageIds = NuGetUIThreadHelper.JoinableTaskFactory.Run(
                 () => GetPackageIdsFromRemoteSourceAsync(Id, IncludePrerelease.IsPresent));
 
             Token.ThrowIfCancellationRequested();
@@ -187,7 +188,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
         {
             var asyncLazyVersions = new AsyncLazy<IEnumerable<NuGetVersion>>(
                 () => GetPackageVersionsFromRemoteSourceAsync(id, Version, IncludePrerelease.IsPresent),
-                ThreadHelper.JoinableTaskFactory);
+                NuGetUIThreadHelper.JoinableTaskFactory);
 
             var package = new PowerShellPackage();
             package.Id = id;

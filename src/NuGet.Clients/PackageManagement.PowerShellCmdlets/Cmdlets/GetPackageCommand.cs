@@ -10,6 +10,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using Microsoft.VisualStudio.Shell;
+using NuGet.PackageManagement.UI;
 using NuGet.ProjectManagement;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
@@ -110,7 +111,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
             {
                 CheckSolutionState();
 
-                var packagesToDisplay = ThreadHelper.JoinableTaskFactory.Run(
+                var packagesToDisplay = NuGetUIThreadHelper.JoinableTaskFactory.Run(
                     () => GetInstalledPackagesAsync(Projects, Filter, Skip, First, Token));
 
                 WriteInstalledPackages(packagesToDisplay);
@@ -150,7 +151,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
                 else
                 {
                     CheckSolutionState();
-                    ThreadHelper.JoinableTaskFactory.Run(WriteUpdatePackagesFromRemoteSourceAsyncInSolutionAsync);
+                    NuGetUIThreadHelper.JoinableTaskFactory.Run(WriteUpdatePackagesFromRemoteSourceAsyncInSolutionAsync);
                 }
             }
         }
