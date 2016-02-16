@@ -51,6 +51,10 @@ namespace NuGet.PackageManagement.UI
 
         public static SearchResult<T> FromItems<T>(IReadOnlyList<T> items) => new SearchResult<T> { Items = items };
 
-        public static SearchResult<T> Empty<T>() => new SearchResult<T> { Items = new T[] { } };
+        public static SearchResult<T> Empty<T>() => new SearchResult<T>
+        {
+            Items = new T[] { },
+            SourceSearchStatus = new Dictionary<string, LoadingStatus> { }
+        };
     }
 }

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Microsoft.VisualStudio.Shell;
+using NuGet.PackageManagement.UI;
 using NuGet.PackageManagement.VisualStudio;
 using NuGet.Packaging.Core;
 using NuGet.ProjectManagement;
@@ -63,7 +64,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
             UpdateActiveSourceRepository(Source);
             GetNuGetProject(ProjectName);
             DetermineFileConflictAction();
-            ThreadHelper.JoinableTaskFactory.Run(CheckMissingPackagesAsync);
+            NuGetUIThreadHelper.JoinableTaskFactory.Run(CheckMissingPackagesAsync);
         }
 
         protected override void ProcessRecordCore()
@@ -164,7 +165,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
                 return;
             }
 
-            var metadata = ThreadHelper.JoinableTaskFactory.Run(() => GetPackagesFromRemoteSourceAsync(Id, includePrerelease: true));
+            var metadata = NuGetUIThreadHelper.JoinableTaskFactory.Run(() => GetPackagesFromRemoteSourceAsync(Id, includePrerelease: true));
             if (!metadata.Any())
             {
                 return;

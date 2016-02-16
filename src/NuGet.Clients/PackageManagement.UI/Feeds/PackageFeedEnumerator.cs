@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NuGet.Protocol.Core.Types;
-using ThreadHelper = Microsoft.VisualStudio.Shell.ThreadHelper;
 
 namespace NuGet.PackageManagement.UI
 {
@@ -55,7 +54,7 @@ namespace NuGet.PackageManagement.UI
                 return true;
             }
 
-            ThreadHelper.JoinableTaskFactory.Run(LoadNextAsync);
+            NuGetUIThreadHelper.JoinableTaskFactory.Run(LoadNextAsync);
             return _current.MoveNext();
         }
 

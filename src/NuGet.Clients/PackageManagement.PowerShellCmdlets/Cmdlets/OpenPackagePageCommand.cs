@@ -8,6 +8,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Microsoft.VisualStudio.Shell;
+using NuGet.PackageManagement.UI;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
@@ -53,7 +54,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
             IPackageSearchMetadata package = null;
             try
             {
-                var metadata = ThreadHelper.JoinableTaskFactory.Run(() => GetPackagesFromRemoteSourceAsync(Id, IncludePrerelease.IsPresent));
+                var metadata = NuGetUIThreadHelper.JoinableTaskFactory.Run(() => GetPackagesFromRemoteSourceAsync(Id, IncludePrerelease.IsPresent));
 
                 if (!string.IsNullOrEmpty(Version))
                 {

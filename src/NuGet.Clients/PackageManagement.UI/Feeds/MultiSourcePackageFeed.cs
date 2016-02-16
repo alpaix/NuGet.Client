@@ -14,7 +14,7 @@ namespace NuGet.PackageManagement.UI
     internal class MultiSourcePackageFeed : IPackageFeed
     {
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
-        private const int PageSize = 100;
+        private const int PageSize = 25;
 
         private readonly IEnumerable<SourceRepository> _sourceRepositories;
         private readonly Logging.ILogger _logger;
