@@ -46,11 +46,11 @@ namespace NuGet.PackageManagement.UI
 
         public PackageManagerModel Model { get; }
 
-        private SourceDescriptorItem SelectedSourceItem
+        private PackageSourceMoniker SelectedSource
         {
             get
             {
-                return _topPanel.SourceRepoList.SelectedItem as SourceDescriptorItem;
+                return _topPanel.SourceRepoList.SelectedItem as PackageSourceMoniker;
             }
             set
             {
@@ -58,9 +58,11 @@ namespace NuGet.PackageManagement.UI
             }
         }
 
-        private IEnumerable<SourceDescriptorItem> SourceItems => _topPanel.SourceRepoList.Items.OfType<SourceDescriptorItem>();
+        private IEnumerable<PackageSourceMoniker> PackageSources => _topPanel.SourceRepoList.Items.OfType<PackageSourceMoniker>();
 
-        internal IEnumerable<SourceRepository> ActiveSources => SelectedSourceItem?.SourceRepositories ?? Enumerable.Empty<SourceRepository>();
+        internal IEnumerable<SourceRepository> ActiveSources => SelectedSource?.SourceRepositories ?? Enumerable.Empty<SourceRepository>();
+
+        public bool IncludePrerelease => _topPanel.CheckboxPrerelease.IsChecked == true;
 
         public PackageManagerControl(
             PackageManagerModel model,
@@ -263,16 +265,11 @@ namespace NuGet.PackageManagement.UI
             _dontStartNewSearch = true;
             try
             {
-                var prevSelectedItem = SelectedSourceItem;
+                var prevSelectedItem = SelectedSource;
                 PopulateSourceRepoList();
 
-                //if (selectedItem != null)
-                //{
-                //    Model.Context.SourceProvider.PackageSourceProvider.SaveActivePackageSource(selectedItem.SourceName);
-                //}
-
                 // force a new search explicitly if active source has changed
-                if (prevSelectedItem != SelectedSourceItem)
+                if (prevSelectedItem != SelectedSource)
                 {
                     SaveSettings();
                     SearchPackageInActivePackageSource(_windowSearchHost.SearchQuery.SearchString);
@@ -313,7 +310,7 @@ namespace NuGet.PackageManagement.UI
         {
             var settings = new UserSettings
             {
-                //SourceRepository = ActiveSource?.PackageSource.Name,
+                SourceRepository = SelectedSource?.SourceName,
                 ShowPreviewWindow = _detailModel.Options.ShowPreviewWindow,
                 RemoveDependencies = _detailModel.Options.RemoveDependencies,
                 ForceRemove = _detailModel.Options.ForceRemove,
@@ -462,46 +459,29 @@ namespace NuGet.PackageManagement.UI
 
         private void PopulateSourceRepoList(string optionalSelectSourceName = null)
         {
-            var selectedSourceName = optionalSelectSourceName ?? SelectedSourceItem?.SourceName;
+            var selectedSourceName = optionalSelectSourceName ?? SelectedSource?.SourceName;
 
             // init source repo list
             _topPanel.SourceRepoList.Items.Clear();
-            var enabledSources = GetEnabledSources().ToArray();
-            if (enabledSources.Length == 0)
-            {
-                SelectedSourceItem = null;
-                return;
-            }
 
-            if (enabledSources.Length > 1)
-            {
-                _topPanel.SourceRepoList.Items.Add(new SourceDescriptorItem("All", enabledSources));
-            }
-
-            enabledSources
-                .Select(s => new SourceDescriptorItem(s))
-                .ToList()
+            PackageSourceMoniker
+                .PopulateList(Model.Context.SourceProvider)
                 .ForEach(s => _topPanel.SourceRepoList.Items.Add(s));
 
             if (selectedSourceName != null)
             {
-                SelectedSourceItem = SourceItems
+                SelectedSource = PackageSources
                     // if the old active source still exists. Keep it as the active source.
                     .FirstOrDefault(i => StringComparer.CurrentCultureIgnoreCase.Equals(i.SourceName, selectedSourceName))
                     // If the old active source does not exist any more. In this case,
                     // use the first eneabled source as the active source.
-                    ?? SourceItems.First();
+                    ?? PackageSources.FirstOrDefault();
             }
             else
             {
                 // use the first enabled source as the active source by default
-                SelectedSourceItem = SourceItems.First();
+                SelectedSource = PackageSources.FirstOrDefault();
             }
-        }
-
-        public bool IncludePrerelease
-        {
-            get { return _topPanel.CheckboxPrerelease.IsChecked == true; }
         }
 
         /// <summary>
@@ -513,19 +493,11 @@ namespace NuGet.PackageManagement.UI
             {
                 await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                PackageItemLoader loader = null;
-                try
-                {
-                    var loadContext = new PackageLoadContext(
-                        ActiveSources, Model.IsSolution, Model.Context);
-                    var packageFeed = await CreatePackageFeedAsync(loadContext, _topPanel.Filter);
-                    loader = new PackageItemLoader(
-                        loadContext, packageFeed, searchText, IncludePrerelease);
-                }
-                catch (Exception ex)
-                {
-                    throw new InvalidOperationException("", ex);
-                }
+                var loadContext = new PackageLoadContext(
+                    ActiveSources, Model.IsSolution, Model.Context);
+                var packageFeed = await CreatePackageFeedAsync(loadContext, _topPanel.Filter);
+                var loader = new PackageItemLoader(
+                    loadContext, packageFeed, searchText, IncludePrerelease);
                 var loadingMessage = string.IsNullOrWhiteSpace(searchText)
                     ? Resx.Resources.Text_Loading
                     : string.Format(CultureInfo.CurrentCulture, Resx.Resources.Text_Searching, searchText);
@@ -659,10 +631,10 @@ namespace NuGet.PackageManagement.UI
                 return;
             }
 
-            if (SelectedSourceItem != null)
+            if (SelectedSource != null)
             {
                 _topPanel.SourceToolTip.Visibility = Visibility.Visible;
-                _topPanel.SourceToolTip.DataContext = SelectedSourceItem.GetTooltip();
+                _topPanel.SourceToolTip.DataContext = SelectedSource.GetTooltip();
 
                 //Model.Context.SourceProvider.PackageSourceProvider.SaveActivePackageSource(ActiveSource.PackageSource);
                 SaveSettings();

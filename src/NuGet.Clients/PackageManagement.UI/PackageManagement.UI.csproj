@@ -109,6 +109,9 @@
     <Compile Include="Converters\SummaryToFontStyleConverter.cs" />
     <Compile Include="Converters\SummaryToStringConverter.cs" />
     <Compile Include="Converters\VersionToStringConverter.cs" />
+    <Compile Include="Feeds\IAutoCompleteProvider.cs" />
+    <Compile Include="Feeds\MultiSourceAutoCompleteProvider.cs" />
+    <Compile Include="Feeds\PackageFeedEnumerator.cs" />
     <Compile Include="Models\DependencyBehaviorItem.cs" />
     <Compile Include="Models\DetailControlModel.cs" />
     <Compile Include="Feeds\MultiSourcePackageFeed.cs" />
@@ -120,13 +123,13 @@
     <Compile Include="InfiniteScrollListItemStyleSelector.cs" />
     <Compile Include="Feeds\InstalledPackageFeed.cs" />
     <Compile Include="Feeds\IPackageFeed.cs" />
-    <Compile Include="Models\SourceDescriptorItem.cs" />
     <Compile Include="Common\PackageCollection.cs" />
     <Compile Include="Feeds\IPackageMetadataProvider.cs" />
     <Compile Include="Models\LoadingStatus.cs" />
     <Compile Include="LoadingStatusIndicator.cs" />
     <Compile Include="Models\AlternativePackageManagerProviders.cs" />
     <Compile Include="Models\PackageItemListViewModel.cs" />
+    <Compile Include="Models\PackageSourceMoniker.cs" />
     <Compile Include="Models\PackageStatus.cs" />
     <Compile Include="Models\SearchResult.cs" />
     <Compile Include="Feeds\MultiSourcePackageMetadataProvider.cs" />

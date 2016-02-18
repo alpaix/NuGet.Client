@@ -14,7 +14,7 @@ namespace NuGet.PackageManagement.UI
     internal class MultiSourcePackageFeed : IPackageFeed
     {
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
-        private const int PageSize = 100;
+        private const int PageSize = 25;
 
         private readonly IEnumerable<SourceRepository> _sourceRepositories;
         private readonly Logging.ILogger _logger;
@@ -60,7 +60,7 @@ namespace NuGet.PackageManagement.UI
                 .Select(task => task.ContinueWith(LogError, TaskContinuationOptions.OnlyOnFaulted))
                 .ToArray();
 
-            return await WaitForCompletionOrBailAsync(searchText, searchTasks, cancellationToken);
+            return await WaitForCompletionOrBailOutAsync(searchText, searchTasks, cancellationToken);
         }
 
         public async Task<SearchResult<IPackageSearchMetadata>> ContinueSearchAsync(ContinuationToken continuationToken, CancellationToken cancellationToken)
@@ -84,7 +84,7 @@ namespace NuGet.PackageManagement.UI
                 .Select(task => task.ContinueWith(LogError, TaskContinuationOptions.OnlyOnFaulted))
                 .ToArray();
 
-            return await WaitForCompletionOrBailAsync(searchToken.SearchString, searchTasks, cancellationToken);
+            return await WaitForCompletionOrBailOutAsync(searchToken.SearchString, searchTasks, cancellationToken);
         }
 
         public async Task<SearchResult<IPackageSearchMetadata>> RefreshSearchAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
@@ -95,10 +95,10 @@ namespace NuGet.PackageManagement.UI
                 throw new InvalidOperationException("Invalid token");
             }
 
-            return await WaitForCompletionOrBailAsync(searchToken.SearchString, searchToken.SearchTasks, cancellationToken);
+            return await WaitForCompletionOrBailOutAsync(searchToken.SearchString, searchToken.SearchTasks, cancellationToken);
         }
 
-        private async Task<SearchResult<IPackageSearchMetadata>> WaitForCompletionOrBailAsync(
+        private async Task<SearchResult<IPackageSearchMetadata>> WaitForCompletionOrBailOutAsync(
             string searchText,
             IDictionary<string, Task<SearchResult<IPackageSearchMetadata>>> searchTasks, 
             CancellationToken cancellationToken)
@@ -122,13 +122,12 @@ namespace NuGet.PackageManagement.UI
             }
 
             var partitionedTasks = searchTasks
-                .GroupBy(t => t.Value.Status == TaskStatus.RanToCompletion)
-                .ToArray();
+                .ToLookup(t => t.Value.Status == TaskStatus.RanToCompletion);
 
-            var completedOnly = partitionedTasks.SingleOrDefault(g => g.Key);
+            var completedOnly = partitionedTasks[true];
 
             SearchResult<IPackageSearchMetadata> aggregated;
-            if (completedOnly != null)
+            if (completedOnly.Any())
             {
                 var results = await Task.WhenAll(completedOnly.Select(kv => kv.Value));
                 aggregated = await AggregateSearchResultsAsync(searchText, results);
@@ -140,8 +139,8 @@ namespace NuGet.PackageManagement.UI
 
             aggregated.RefreshToken = refreshToken;
 
-            var notCompleted = partitionedTasks.SingleOrDefault(g => !g.Key);
-            if (notCompleted != null)
+            var notCompleted = partitionedTasks[false];
+            if (notCompleted.Any())
             {
                 aggregated.SourceSearchStatus
                     .AddRange(notCompleted

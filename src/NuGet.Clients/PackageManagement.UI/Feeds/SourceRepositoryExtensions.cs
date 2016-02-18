@@ -147,5 +147,30 @@ namespace NuGet.PackageManagement.UI
                 .OrderByDescending(m => m.Identity.Version, VersionComparer.VersionRelease)
                 .Select(m => new VersionInfo(m.Identity.Version, m.DownloadCount));
         }
+
+        public static async Task<IEnumerable<string>> IdStartsWithAsync(
+            this SourceRepository sourceRepository, string packageIdPrefix, bool includePrerelease, CancellationToken cancellationToken)
+        {
+            var autoCompleteResource = await sourceRepository.GetResourceAsync<AutoCompleteResource>(cancellationToken);
+            var packageIds = await autoCompleteResource?.IdStartsWith(
+                packageIdPrefix,
+                includePrerelease: true,
+                token: cancellationToken);
+
+            return packageIds ?? Enumerable.Empty<string>();
+        }
+
+        public static async Task<IEnumerable<NuGetVersion>> VersionStartsWithAsync(
+            this SourceRepository sourceRepository, string packageId, string versionPrefix, bool includePrerelease, CancellationToken cancellationToken)
+        {
+            var autoCompleteResource = await sourceRepository.GetResourceAsync<AutoCompleteResource>(cancellationToken);
+            var versions = await autoCompleteResource?.VersionStartsWith(
+                packageId, 
+                versionPrefix,
+                includePrerelease: true,
+                token: cancellationToken);
+
+            return versions ?? Enumerable.Empty<NuGetVersion>();
+        }
     }
 }

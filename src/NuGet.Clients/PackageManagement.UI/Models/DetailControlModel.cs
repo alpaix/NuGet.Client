@@ -263,7 +263,7 @@ namespace NuGet.PackageManagement.UI
             }
         }
 
-        public async Task LoadPackageMetadaAsync(IPackageMetadataProvider metadataProvider, CancellationToken token)
+        internal async Task LoadPackageMetadaAsync(IPackageMetadataProvider metadataProvider, CancellationToken token)
         {
             var versions = await _searchResultPackage.GetVersionsAsync();
 

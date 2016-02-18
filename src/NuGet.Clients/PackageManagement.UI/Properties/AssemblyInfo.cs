@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 [assembly: InternalsVisibleTo("PackageManagement.UI.Test")]
-
+[assembly: InternalsVisibleTo("NuGet.PackageManagement.PowerShellCmdlets")]
 
 [assembly: AssemblyTitle("NuGet's Package Management UI for Visual Studio")]
 [assembly: AssemblyDescription("NuGet's Package Management UI for Visual Studio")]
