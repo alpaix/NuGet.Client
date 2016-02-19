@@ -35,14 +35,34 @@ namespace NuGet.PackageManagement.UI
         {
             private readonly SearchResult<IPackageSearchMetadata> _results;
 
-            public PackageFeedSearchState(SearchResult<IPackageSearchMetadata> results = null)
+            public PackageFeedSearchState()
             {
+            }
+
+            public PackageFeedSearchState(SearchResult<IPackageSearchMetadata> results)
+            {
+                if (results == null)
+                {
+                    throw new ArgumentNullException(nameof(results));
+                }
                 _results = results;
             }
 
             public SearchResult<IPackageSearchMetadata> Results => _results;
 
-            public LoadingStatus LoadingStatus => AggregateLoadingStatus(SourceLoadingStatus?.Values);
+            public LoadingStatus LoadingStatus
+            {
+                get
+                {
+                    if (_results == null)
+                    {
+                        // initial status when no load called before
+                        return LoadingStatus.Ready;
+                    }
+
+                    return AggregateLoadingStatus(SourceLoadingStatus?.Values);
+                }
+            }
 
             public bool IsMultiSource => SourceLoadingStatus?.Count > 1;
 
@@ -56,7 +76,7 @@ namespace NuGet.PackageManagement.UI
 
                 if (count == 0)
                 {
-                    return LoadingStatus.Ready;
+                    return LoadingStatus.Loading;
                 }
 
                 var first = statuses.First();
@@ -80,7 +100,22 @@ namespace NuGet.PackageManagement.UI
                     return LoadingStatus.Cancelled;
                 }
 
-                return LoadingStatus.Unknown;
+                if (statuses.Contains(LoadingStatus.Ready))
+                {
+                    return LoadingStatus.Ready;
+                }
+
+                if (statuses.Contains(LoadingStatus.NoMoreItems))
+                {
+                    return LoadingStatus.NoMoreItems;
+                }
+
+                if (statuses.Contains(LoadingStatus.NoItemsFound))
+                {
+                    return LoadingStatus.NoItemsFound;
+                }
+
+                return first;
             }
         }
 
@@ -130,7 +165,12 @@ namespace NuGet.PackageManagement.UI
 
             NuGetEventTrigger.Instance.TriggerEvent(NuGetEvent.PackageLoadBegin);
 
-            var searchResult = await SearchAsync(_state.Results?.NextToken, cancellationToken);
+            var nextToken = _state.Results?.NextToken;
+            var cleanState = SearchResult.Empty<IPackageSearchMetadata>();
+            cleanState.NextToken = nextToken;
+            await UpdateStateAndReportAsync(cleanState, progress);
+
+            var searchResult = await SearchAsync(nextToken, cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -144,6 +184,8 @@ namespace NuGet.PackageManagement.UI
             cancellationToken.ThrowIfCancellationRequested();
 
             NuGetEventTrigger.Instance.TriggerEvent(NuGetEvent.PackageLoadBegin);
+
+            progress?.Report(_state);
 
             var refreshToken = _state.Results?.RefreshToken;
             if (refreshToken != null)

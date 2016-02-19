@@ -76,12 +76,14 @@ namespace NuGet.PackageManagement.UI
         public ObservableCollection<object> Items { get; } = new ObservableCollection<object>();
         public IEnumerable<PackageItemListViewModel> PackageItems => Items.OfType<PackageItemListViewModel>();
         public PackageItemListViewModel SelectedPackageItem => _list.SelectedItem as PackageItemListViewModel;
+        public int PackageItemsCount => PackageItems.Count();
 
         // Load items using the specified loader
         internal async Task LoadAsync(IItemLoader<PackageItemListViewModel> loader, string loadingMessage)
         {
             _loader = loader;
             _loadingStatusIndicator.Reset(loadingMessage);
+            _loadingStatusBar.Reset(loadingMessage);
 
             var selectedPackageItem = SelectedPackageItem;
             ClearPackageList();
@@ -89,7 +91,7 @@ namespace NuGet.PackageManagement.UI
             _selectedCount = 0;
 
             // now the package list
-            await LoadItemsAsync();
+            await LoadItemsAsync(restart: false);
 
             UpdateSelectedItem(selectedPackageItem);
             UpdateCheckBoxStatus();
@@ -108,7 +110,7 @@ namespace NuGet.PackageManagement.UI
             _list.SelectedItem = selectedItem ?? PackageItems.FirstOrDefault();
         }
 
-        private async Task LoadItemsAsync(bool refresh = false)
+        private async Task LoadItemsAsync(bool restart)
         {
             var loadCts = new CancellationTokenSource();
             // If there is another async loading process - cancel it.
@@ -116,7 +118,7 @@ namespace NuGet.PackageManagement.UI
 
             try
             {
-                await LoadItemsCoreAsync(refresh, loadCts.Token);
+                await LoadItemsCoreAsync(restart: restart, token: loadCts.Token);
             }
             catch (OperationCanceledException) when (!loadCts.IsCancellationRequested)
             {
@@ -142,46 +144,91 @@ namespace NuGet.PackageManagement.UI
             }
         }
 
-        private async Task LoadItemsCoreAsync(bool refresh, CancellationToken token)
+        private async Task LoadItemsCoreAsync(bool restart, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
+
+            if (restart)
+            {
+                ClearPackageList();
+            }
 
             ShowLoadingStatus(LoadingStatus.Loading);
 
             var currentLoader = _loader;
 
-            // run Loader.LoadItems in background thread. Otherwise if the
-            // source if V2, the UI can get blocked.
-            await Task.Run(() => InvokeLoaderAsync(currentLoader, refresh, token));
+            var loadedItems = await LoadNextPageAsync(currentLoader, restart: restart, token: token);
+
+            token.ThrowIfCancellationRequested();
 
             // multiple loads may occur at the same time
-            if (!token.IsCancellationRequested
-                && currentLoader == _loader)
+            if (currentLoader == _loader)
             {
-                UpdatePackageList(currentLoader.GetCurrent().ToList(), refresh);
+                UpdatePackageList(loadedItems.ToList(), refresh: restart);
             }
+
+            token.ThrowIfCancellationRequested();
+
+            // keep waiting till completion
+            await WaitForCompletionAsync(currentLoader, token);
+
+            token.ThrowIfCancellationRequested();
+
+            ShowLoadingStatus(currentLoader.State.LoadingStatus);
         }
 
-        private async Task InvokeLoaderAsync(IItemLoader<PackageItemListViewModel> currentLoader, bool refresh, CancellationToken token)
+        private async Task<IEnumerable<PackageItemListViewModel>> LoadNextPageAsync(IItemLoader<PackageItemListViewModel> currentLoader, bool restart, CancellationToken token)
         {
-            var progress = new Progress<IItemLoaderState>(
-                s => HandleItemLoaderStateChange(currentLoader, s));
-
-            // trigger loading
-            await currentLoader.LoadNextAsync(progress, token);
-
-            // run to completion
-            while (currentLoader.State.LoadingStatus == LoadingStatus.Loading)
+            // run Loader.LoadItems in background thread. Otherwise if the
+            // source if V2, the UI can get blocked.
+            return await Task.Run(async () =>
             {
-                await currentLoader.UpdateStateAsync(progress, token);
-            }
+                var progress = new Progress<IItemLoaderState>(
+                    s => HandleItemLoaderStateChange(currentLoader, s));
+
+                if (restart)
+                {
+                    currentLoader.Reset();
+                }
+
+                // trigger loading
+                await currentLoader.LoadNextAsync(progress, token);
+
+                // run till first results are ready
+                for (var state = currentLoader.State; 
+                    state.LoadingStatus == LoadingStatus.Loading && state.ItemsCount == 0; 
+                    state = currentLoader.State)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await currentLoader.UpdateStateAsync(progress, token);
+                }
+
+                return currentLoader.GetCurrent();
+            }, token);
+        }
+
+        private async Task WaitForCompletionAsync(IItemLoader<PackageItemListViewModel> currentLoader, CancellationToken token)
+        {
+            await Task.Run(async () =>
+            {
+                var progress = new Progress<IItemLoaderState>(
+                    s => HandleItemLoaderStateChange(currentLoader, s));
+
+                // run to completion
+                while (currentLoader.State.LoadingStatus == LoadingStatus.Loading)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await currentLoader.UpdateStateAsync(progress, token);
+                }
+            }, token);
         }
 
         private void HandleItemLoaderStateChange(IItemLoader<PackageItemListViewModel> loader, IItemLoaderState state)
         {
             if (loader == _loader)
             {
-                _loadingStatusIndicator.UpdateLoadingStatus(state);
+                _loadingStatusIndicator.UpdateLoadingState(state);
+                _loadingStatusBar.UpdateLoadingState(state);
             }
         }
 
@@ -214,17 +261,18 @@ namespace NuGet.PackageManagement.UI
             _selectedCount += packages.Count(p => p.Selected);
 
             // add newly loaded items
-            packages
-                .ForEach(p =>
-                {
-                    p.PropertyChanged += Package_PropertyChanged;
-                    Items.Add(p);
-                });
+            packages.ForEach(p =>
+            {
+                p.PropertyChanged += Package_PropertyChanged;
+                Items.Add(p);
+            });
 
             if (_loadingStatusIndicator.IsVisible)
             {
                 Items.Add(_loadingStatusIndicator);
             }
+
+            _loadingStatusBar.ItemsLoaded = PackageItems.Count();
 
             UpdateSelectedItem(selectedItem);
         }
@@ -235,6 +283,8 @@ namespace NuGet.PackageManagement.UI
                 .ToList()
                 .ForEach(i => i.PropertyChanged -= Package_PropertyChanged);
             Items.Clear();
+
+            _loadingStatusBar.ItemsLoaded = PackageItems.Count();
         }
 
         public void UpdatePackageStatus(PackageIdentity[] installedPackages)
@@ -369,14 +419,14 @@ namespace NuGet.PackageManagement.UI
                 var last = _scrollViewer.ViewportHeight + first;
                 if (_scrollViewer.ViewportHeight > 0 && last >= Items.Count)
                 {
-                    NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(() => LoadItemsAsync(refresh: false));
+                    NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(() => LoadItemsAsync(restart: false));
                 }
             }
         }
 
         private void RetryButtonClicked(object sender, RoutedEventArgs e)
         {
-            NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(() => LoadItemsAsync(refresh: true));
+            NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(() => LoadItemsAsync(restart: true));
         }
 
         private void SelectAllPackagesCheckBox_Checked(object sender, RoutedEventArgs e)
@@ -429,6 +479,17 @@ namespace NuGet.PackageManagement.UI
                 package.Selected = !package.Selected;
                 e.Handled = true;
             }
+        }
+
+        private void _loadingStatusBar_ShowMoreResultsClicked(object sender, EventArgs e)
+        {
+            var packageItems = _loader?.GetCurrent() ?? Enumerable.Empty<PackageItemListViewModel>();
+            UpdatePackageList(packageItems.ToList(), refresh: true);
+        }
+
+        private void _loadingStatusBar_RestartSearchClicked(object sender, EventArgs e)
+        {
+            NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(() => LoadItemsAsync(restart: true));
         }
     }
 }

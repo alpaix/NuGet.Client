@@ -90,6 +90,9 @@
     </Compile>
     <Compile Include="Common\VisualStudioActivityLogger.cs" />
     <Compile Include="Common\TriggerEventMethod.cs" />
+    <Compile Include="Converters\MessageLevelToBrushConverter.cs" />
+    <Compile Include="Converters\LoadingStatusToIconConverter.cs" />
+    <Compile Include="Converters\NotEqualConverter.cs" />
     <Compile Include="Feeds\ConsolidatePackageFeed.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Converters\BooleanToVisibilityConverter.cs" />
@@ -185,6 +188,9 @@
     <Compile Include="Xamls\AuthorAndDownloadCount.xaml.cs">
       <DependentUpon>AuthorAndDownloadCount.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Xamls\LoadingStatusBar.xaml.cs">
+      <DependentUpon>LoadingStatusBar.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Xamls\PackageManagerProvidersLabel.xaml.cs">
       <DependentUpon>PackageManagerProvidersLabel.xaml</DependentUpon>
     </Compile>
@@ -196,6 +202,9 @@
     </Compile>
     <Compile Include="Xamls\SortableColumnHeader.xaml.cs">
       <DependentUpon>SortableColumnHeader.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Xamls\Spinner.xaml.cs">
+      <DependentUpon>Spinner.xaml</DependentUpon>
     </Compile>
     <Compile Include="Xamls\UninstallButton.xaml.cs">
       <DependentUpon>UninstallButton.xaml</DependentUpon>
@@ -272,6 +281,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Xamls\LoadingStatusBar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Xamls\PackageManagerProvidersLabel.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -287,6 +300,10 @@
     <Page Include="Xamls\SortableColumnHeader.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Xamls\Spinner.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Xamls\UninstallButton.xaml">
       <SubType>Designer</SubType>
@@ -377,7 +394,13 @@
       <Name>VisualStudio</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Resource Include="Resources\StatusOK_32x.png" />
+    <Resource Include="Resources\StatusStop_32x.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\StatusAnnotations_Play_32xLG_color.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\..\..\build\common.targets" />
   <Import Project="..\..\..\build\sign.targets" />

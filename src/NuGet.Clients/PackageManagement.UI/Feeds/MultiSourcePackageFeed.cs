@@ -216,10 +216,14 @@ namespace NuGet.PackageManagement.UI
 
         private void LogError(Task task)
         {
-            foreach (var ex in task.Exception.Flatten().InnerExceptions)
+            try
             {
-                _logger.LogError(ex.ToString());
+                foreach (var ex in task.Exception.Flatten().InnerExceptions)
+                {
+                    _logger.LogError(ex.ToString());
+                }
             }
+            catch { }
         }
     }
 }

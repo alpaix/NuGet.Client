@@ -88,7 +88,7 @@ namespace NuGet.PackageManagement.UI
             }
         }
 
-        public void UpdateLoadingStatus(IItemLoaderState loaderState)
+        public void UpdateLoadingState(IItemLoaderState loaderState)
         {
             if (loaderState.LoadingStatus == LoadingStatus.ErrorOccured)
             {
