@@ -72,7 +72,10 @@ Function Format-ElapsedTime($ElapsedTime) {
     '{0:F0}:{1:D2}' -f $ElapsedTime.TotalMinutes, $ElapsedTime.Seconds
 }
 
-Function Invoke-BuildStep {
+$NuGetBuildSteps = @()
+
+Function New-BuildStep {
+    [Alias("step")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$True)]
@@ -367,7 +370,6 @@ Function Test-XProject {
 
             pushd $_
 
-            
                 # Check if dnxcore50 exists in the project.json file
                 $xtestProjectJson = Join-Path $_ "project.json"
                 if (Get-Content $($xtestProjectJson) | Select-String "netcoreapp1.0") {
@@ -377,7 +379,7 @@ Function Test-XProject {
                     Trace-Log "$DotNetExe restore"
                     & $DotNetExe restore
 
-                    # Build 
+                    # Build
                     Trace-Log "$DotNetExe build --configuration $Configuration --framework netcoreapp1.0"
                     & $DotNetExe build --configuration $Configuration --framework netcoreapp1.0
 
@@ -400,7 +402,7 @@ Function Test-XProject {
                     Trace-Log "$DotNetExe restore --infer-runtimes"
                     & $DotNetExe restore --infer-runtimes
 
-                    # Build 
+                    # Build
                     Trace-Log "$DotNetExe build --configuration $Configuration --runtime win7-x64 --framework net46"
                     & $DotNetExe build --configuration $Configuration --runtime win7-x64 --framework net46
 
