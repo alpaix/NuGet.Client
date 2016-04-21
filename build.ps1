@@ -30,118 +30,24 @@ trap
     exit 1
 }
 
-$CLIRoot=$PSScriptRoot
-$env:DOTNET_INSTALL_DIR=$CLIRoot
-
 . "$PSScriptRoot\build\common.ps1"
-
-
-$RunTests = (-not $SkipTests) -and (-not $Fast)
-
-Write-Host ("`r`n" * 3)
-Trace-Log ('=' * 60)
-
-$startTime = [DateTime]::UtcNow
-if (-not $BuildNumber) {
-    $BuildNumber = Get-BuildNumber
-}
-Trace-Log "Build #$BuildNumber started at $startTime"
 
 # Move to the script directory
 pushd $NuGetClientRoot
 
-$BuildErrors = @()
-Invoke-BuildStep 'Updating sub-modules' { Update-SubModules } `
-    -skip:($SkipSubModules -or $Fast) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Cleaning artifacts' { Clear-Artifacts } `
-    -skip:$SkipXProj `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Cleaning nupkgs' { Clear-Nupkgs } `
-    -skip:$SkipXProj `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Cleaning package cache' { Clear-PackageCache } `
-    -skip:(-not $CleanCache) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Installing NuGet.exe' { Install-NuGet } `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Installing dotnet CLI' { Install-DotnetCLI } `
-    -ev +BuildErrors
-
-# Restoring tools required for build
-Invoke-BuildStep 'Restoring solution packages' { Restore-SolutionPackages } `
-    -skip:$SkipRestore `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Enabling delayed signing' {
-        param($MSPFXPath, $NuGetPFXPath) Enable-DelaySigning $MSPFXPath $NuGetPFXPath
-    } `
-    -args $MSPFXPath, $NuGetPFXPath `
-    -skip:((-not $MSPFXPath) -and (-not $NuGetPFXPath)) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Building NuGet.Core projects' {
-        param($Configuration, $ReleaseLabel, $BuildNumber, $SkipRestore, $Fast)
-        Build-CoreProjects $Configuration $ReleaseLabel $BuildNumber -SkipRestore:$SkipRestore -Fast:$Fast
-    } `
-    -args $Configuration, $ReleaseLabel, $BuildNumber, $SkipRestore, $Fast `
-    -skip:$SkipXProj `
-    -ev +BuildErrors
-
-## Building the Tooling solution
-Invoke-BuildStep 'Building NuGet.Clients projects' {
-        param($Configuration, $ReleaseLabel, $BuildNumber, $SkipRestore, $Fast)
-        Build-ClientsProjects $Configuration $ReleaseLabel $BuildNumber -SkipRestore:$SkipRestore -Fast:$Fast
-    } `
-    -args $Configuration, $ReleaseLabel, $BuildNumber, $SkipRestore, $Fast `
-    -skip:$SkipCSproj `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Running NuGet.Core tests' {
-        param($SkipRestore, $Fast)
-        Test-CoreProjects -SkipRestore:$SkipRestore -Fast:$Fast -Configuration:$Configuration
-    } `
-    -args $SkipRestore, $Fast, $Configuration `
-    -skip:(-not $RunTests) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Running NuGet.Clients tests' {
-        param($Configuration) Test-ClientsProjects $Configuration
-    } `
-    -args $Configuration `
-    -skip:(-not $RunTests) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Merging NuGet.exe' {
-        param($Configuration) Invoke-ILMerge $Configuration
-    } `
-    -args $Configuration `
-    -skip:($SkipILMerge -or $SkipCSProj -or $Fast) `
-    -ev +BuildErrors
+& "$PSScriptRoot\build\nuget-make.ps1" -BuildNumber $BuildNumber -Opts @{
+    Configuration = $Configuration
+    ReleaseLabel = $ReleaseLabel
+    SkipRestore = $SkipRestore.IsPresent
+    CleanCache =$CleanCache.IsPresent
+    MSPFXPath = $MSPFXPath
+    NuGetPFXPath = $NuGetPFXPath
+    SkipXProj = $SkipXProj.IsPresent
+    SkipCSProj = $SkipCSProj.IsPresent
+    SkipSubModules = $SkipSubModules.IsPresent
+    SkipILMerge = $SkipILMerge.IsPresent
+    Fast = $Fast.IsPresent
+    RunTests = (-not $SkipTests) -and (-not $Fast)
+}
 
 popd
-
-Trace-Log ('-' * 60)
-
-## Calculating Build time
-$endTime = [DateTime]::UtcNow
-Trace-Log "Build #$BuildNumber ended at $endTime"
-Trace-Log "Time elapsed $(Format-ElapsedTime ($endTime - $startTime))"
-
-if ($BuildErrors) {
-    Trace-Log "Build's completed with following errors:"
-    $BuildErrors | Out-Default
-}
-
-Trace-Log ('=' * 60)
-
-if ($BuildErrors) {
-    Throw $BuildErrors.Count
-}
-
-Write-Host ("`r`n" * 3)

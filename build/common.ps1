@@ -72,51 +72,6 @@ Function Format-ElapsedTime($ElapsedTime) {
     '{0:F0}:{1:D2}' -f $ElapsedTime.TotalMinutes, $ElapsedTime.Seconds
 }
 
-$NuGetBuildSteps = @()
-
-Function New-BuildStep {
-    [Alias("step")]
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$True)]
-        [string]$BuildStep,
-        [Parameter(Mandatory=$True)]
-        [ScriptBlock]$Expression,
-        [Parameter(Mandatory=$False)]
-        [Alias('args')]
-        [Object[]]$Arguments,
-        [Alias('skip')]
-        [switch]$SkipExecution
-    )
-    if (-not $SkipExecution) {
-        Trace-Log "[BEGIN] $BuildStep"
-        $sw = [Diagnostics.Stopwatch]::StartNew()
-        $completed = $false
-        try {
-            Invoke-Command $Expression -ArgumentList $Arguments -ErrorVariable err
-            $completed = $true
-        }
-        finally {
-            $sw.Stop()
-            Reset-Colors
-            if ($completed) {
-                Trace-Log "[DONE +$(Format-ElapsedTime $sw.Elapsed)] $BuildStep"
-            }
-            else {
-                if (-not $err) {
-                    Trace-Log "[STOPPED +$(Format-ElapsedTime $sw.Elapsed)] $BuildStep"
-                }
-                else {
-                    Error-Log "[FAILED +$(Format-ElapsedTime $sw.Elapsed)] $BuildStep"
-                }
-            }
-        }
-    }
-    else {
-        Warning-Log "[SKIP] $BuildStep"
-    }
-}
-
 Function Update-Submodules {
     [CmdletBinding()]
     param()
