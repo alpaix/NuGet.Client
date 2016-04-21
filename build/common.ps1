@@ -75,11 +75,13 @@ Function Format-ElapsedTime($ElapsedTime) {
 Function Update-Submodules {
     [CmdletBinding()]
     param()
+
     $opts = 'submodule', 'update'
     $opts += '--init'
     if (-not $VerbosePreference) {
         $opts += '--quiet'
     }
+
     Trace-Log 'Updating and initializing submodules'
     Verbose-Log "git $opts"
     & git $opts 2>&1
@@ -91,7 +93,7 @@ Function Install-NuGet {
     param()
     if (-not (Test-Path $NuGetExe)) {
         Trace-Log 'Downloading nuget.exe'
-        wget https://dist.nuget.org/win-x86-commandline/latest-prerelease/nuget.exe -OutFile $NuGetExe
+        wget 'https://dist.nuget.org/win-x86-commandline/latest-prerelease/nuget.exe' -OutFile $NuGetExe
     }
 }
 
@@ -101,18 +103,16 @@ Function Install-DotnetCLI {
 
     Trace-Log 'Downloading Dotnet CLI'
 
+    Verbose-Log "CLI Root is '$CLIRoot'"
     New-Item -ItemType Directory -Force -Path $CLIRoot | Out-Null
 
     $env:DOTNET_HOME=$CLIRoot
+    $env:DOTNET_INSTALL_DIR = $NuGetClientRoot
 
     $installDotnet = Join-Path $CLIRoot "install.ps1"
-    $env:DOTNET_INSTALL_DIR=$NuGetClientRoot
+    wget 'https://raw.githubusercontent.com/dotnet/cli/rel/1.0.0/scripts/obtain/install.ps1' -OutFile $installDotnet
 
-    New-Item -ItemType Directory -Force -Path $CLIRoot
-
-    wget https://raw.githubusercontent.com/dotnet/cli/rel/1.0.0/scripts/obtain/install.ps1 -OutFile cli/install.ps1
-
-    & cli/install.ps1 -Channel beta -i $CLIRoot -Version 1.0.0-rc2-002345
+    & $installDotnet -Channel beta -i $CLIRoot -Version '1.0.0-rc2-002345'
 
     if (-not (Test-Path $DotNetExe)) {
         Error-Log "Unable to find dotnet.exe. The CLI install may have failed."
@@ -210,7 +210,9 @@ Function Restore-SolutionPackages{
         $opts += '-MSBuildVersion', $MSBuildVersion
     }
 
-    $opts += '-verbosity', 'quiet'
+    if (-not $Verbose) {
+        $opts += '-verbosity', 'quiet'
+    }
 
     Trace-Log "Restoring packages @""$NuGetClientRoot"""
     Trace-Log "$NuGetExe $opts"
@@ -223,7 +225,11 @@ Function Restore-SolutionPackages{
 # Restore nuget.core.sln projects
 Function Restore-XProjects {
 
-    $opts = 'restore', "src\NuGet.Core", "test\NuGet.Core.Tests", "test\NuGet.Core.FuncTests", "--verbosity", "minimal", "--infer-runtimes"
+    $opts = 'restore', 'src\NuGet.Core', 'test\NuGet.Core.Tests', 'test\NuGet.Core.FuncTests', '--infer-runtimes'
+
+    if (-not $Verbose) {
+        $opts += '--verbosity', 'minimal'
+    }
 
     Trace-Log "Restoring packages for xprojs"
     Verbose-Log "$dotnetExe $opts"
@@ -260,7 +266,11 @@ Function Invoke-DotnetPack {
     }
     Process {
         $XProjectLocations | %{
-            $opts = , 'pack'
+            $opts = @()
+            if ($VerbosePreference) {
+                $opts += '--verbose'
+            }
+            $opts += 'pack'
             $opts += $_
             $opts += '--configuration', $Configuration
 
@@ -335,16 +345,28 @@ Function Test-XProject {
                     & $DotNetExe restore
 
                     # Build
-                    Trace-Log "$DotNetExe build --configuration $Configuration --framework netcoreapp1.0"
-                    & $DotNetExe build --configuration $Configuration --framework netcoreapp1.0
+                    $opts = @()
+                    if ($VerbosePreference) {
+                        $opts += '--verbose'
+                    }
+                    $opts += 'build', '--configuration', $Configuration, '--framework', 'netcoreapp1.0'
+
+                    Trace-Log "$DotNetExe $opts"
+                    & $DotNetExe $opts
 
                     if (-not $?) {
                         Error-Log "Build failed for CoreCLR $directoryName. Code: $LASTEXITCODE"
                     }
                     else
                     {
-                        Trace-Log "$DotNetExe test --configuration $Configuration --framework netcoreapp1.0 --no-build"
-                        & $DotNetExe test --configuration $Configuration --framework netcoreapp1.0 --no-build
+                        $opts = @()
+                        if ($VerbosePreference) {
+                            $opts += '--verbose'
+                        }
+                        $opts += 'test', '--configuration', $Configuration, '--framework', 'netcoreapp1.0', '--no-build'
+
+                        Trace-Log "$DotNetExe $opts"
+                        & $DotNetExe $opts
                         if (-not $?) {
                             Error-Log "Tests failed @""$_"" on CoreCLR. Code: $LASTEXITCODE"
                         }

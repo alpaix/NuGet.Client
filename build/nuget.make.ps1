@@ -1,3 +1,4 @@
+[CmdletBinding(SupportsShouldProcess=$True)]
 param(
     [Parameter(Position=0,Mandatory=$False)]
     [string]$MakeFile = '.\make.steps.ps1',
@@ -44,7 +45,7 @@ Function New-BuildStep {
 }
 
 Function Invoke-BuildStep {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$True)]
     param(
         [Parameter(Mandatory=$True)]
         [string]$BuildStep,
@@ -62,7 +63,7 @@ Function Invoke-BuildStep {
         $sw = [Diagnostics.Stopwatch]::StartNew()
         $completed = $False
         try {
-            if ($WhatIf) {
+            if (-not $WhatIf) {
                 Invoke-Command $Expression -ArgumentList $Arguments -ErrorVariable err
             }
             $completed = $true
@@ -95,7 +96,7 @@ $startTime = [DateTime]::UtcNow
 if (-not $BuildNumber) {
     $BuildNumber = Get-BuildNumber
 }
-Trace-Log "Build #$BuildNumber started at $startTime"
+Trace-Log "Build #$BuildNumber started at $startTime in '$NuGetClientRoot'"
 
 $script:NuGetBuildSteps = @()
 $script:NuGetMakeProperties = @()

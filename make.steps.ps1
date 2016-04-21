@@ -13,9 +13,6 @@ Properties {
     $SkipILMerge = $False
     $Fast = $False
     $RunTests = $False
-
-    $CLIRoot = $PSScriptRoot
-    $env:DOTNET_INSTALL_DIR = $CLIRoot
 }
 
 Step 'Updating sub-modules' { Update-SubModules } `

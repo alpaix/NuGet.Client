@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param (
     [string]$DepBuildBranch="",
     [string]$DepCommitID="",
@@ -14,12 +15,10 @@ trap
     exit 1
 }
 
-. "$PSScriptRoot\..\..\build\common.ps1"
-
 $FuncScriptsRoot = Split-Path -Path $PSScriptRoot -Parent
 $NuGetClientRoot = Split-Path -Path $FuncScriptsRoot -Parent
-$FuncTestRoot = Join-Path $NuGetClientRoot "test\\NuGet.Core.FuncTests"
-$SrcRoot = Join-Path $NuGetClientRoot "src\\NuGet.Core"
+
+. "$NuGetClientRoot\build\common.ps1"
 
 pushd $NuGetClientRoot
 
@@ -29,44 +28,11 @@ Write-Host "Commit ID: $DepCommitID"
 Write-Host "Build Number: $DepBuildNumber"
 Write-Host ""
 
-$BuildErrors = @()
-
-Invoke-BuildStep 'Updating sub-modules' { Update-SubModules } `
-    -skip:($SkipSubModules -or $Fast) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Cleaning package cache' { Clear-PackageCache } `
-    -skip:(-not $CleanCache) `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Installing NuGet.exe' { Install-NuGet } `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Restoring solution packages' { Restore-SolutionPackages } `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Installing dotnet CLI' { Install-DotnetCLI } `
-    -ev +BuildErrors
-
-Invoke-BuildStep 'Restoring projects' { Restore-XProjects } `
-    -ev +BuildErrors
-
-# Run tests
-$xtests = Find-XProjects $FuncTestRoot
-$xtests | Test-XProject -ev +BuildErrors
+& "$NuGetClientRoot\build\nuget.make.ps1" "$PSScriptRoot\funcTests.steps.ps1" -Opts @{
+    CleanCache =$CleanCache.IsPresent
+}
 
 popd
-
-if ($BuildErrors) {
-    Trace-Log "Build's completed with following errors:"
-    $BuildErrors | Out-Default
-}
-
-Trace-Log ('=' * 60)
-
-if ($BuildErrors) {
-    Throw $BuildErrors.Count
-}
 
 # Return success
 exit 0

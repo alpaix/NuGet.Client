@@ -1,4 +1,4 @@
-[CmdletBinding(DefaultParameterSetName='RegularBuild')]
+[CmdletBinding(DefaultParameterSetName='RegularBuild', SupportsShouldProcess=$True)]
 param (
     [ValidateSet("debug", "release")]
     [string]$Configuration = 'debug',
@@ -32,10 +32,10 @@ trap
 
 . "$PSScriptRoot\build\common.ps1"
 
-# Move to the script directory
+# Move to the root directory
 pushd $NuGetClientRoot
 
-& "$PSScriptRoot\build\nuget-make.ps1" -BuildNumber $BuildNumber -Opts @{
+& "$PSScriptRoot\build\nuget.make.ps1" -BuildNumber $BuildNumber -Opts @{
     Configuration = $Configuration
     ReleaseLabel = $ReleaseLabel
     SkipRestore = $SkipRestore.IsPresent
@@ -51,3 +51,6 @@ pushd $NuGetClientRoot
 }
 
 popd
+
+# Return success
+exit 0
