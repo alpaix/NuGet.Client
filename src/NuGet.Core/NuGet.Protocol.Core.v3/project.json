@@ -36,22 +36,31 @@
   "frameworks": {
     "net45": {
       "frameworkAssemblies": {
-        "System.Collections.Concurrent": "",
         "System.IdentityModel": "",
         "System.Net.Http": "",
         "System.Net.Http.WebRequest": "",
         "System.ServiceModel": ""
+      },
+      "compilationOptions": {
+        "define": [
+          "IS_DESKTOP"
+        ]
       }
     },
-    "netstandard1.5": {
+    "netstandard1.3": {
       "imports": [
         "dotnet5.6",
         "dnxcore50",
         "portable-net45+win8"
       ],
       "dependencies": {
-        "NETStandard.Library": "1.5.0-rc2-24008",
-        "System.Dynamic.Runtime": "4.0.11-rc2-24008"
+        "NETStandard.Library": "1.5.0-rc2-24027",
+        "System.Dynamic.Runtime": "4.0.11-rc2-24027"
+      },
+      "compilationOptions": {
+        "define": [
+          "IS_CORECLR"
+        ]
       }
     }
   }

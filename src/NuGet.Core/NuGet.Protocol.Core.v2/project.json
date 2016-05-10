@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "3.5.0-*",
   "authors": [
     "NuGet"
@@ -37,9 +37,13 @@
   "frameworks": {
     "net45": {
       "frameworkAssemblies": {
-        "System.Collections.Concurrent": "",
         "System.Runtime.Serialization": "",
         "WindowsBase": ""
+      },
+      "compilationOptions": {
+        "define": [
+          "IS_DESKTOP"
+        ]
       }
     }
   }

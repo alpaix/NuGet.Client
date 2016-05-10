@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -24,12 +26,11 @@ namespace NuGet.Protocol
     public class HttpSource : IDisposable
     {
         public static readonly TimeSpan DefaultDownloadTimeout = TimeSpan.FromSeconds(60);
-        private const int MaxAuthRetries = 3;
         private const int BufferSize = 8192;
         private readonly Func<Task<HttpHandlerResource>> _messageHandlerFactory;
         private readonly Uri _baseUri;
-        private HttpClient _httpClient;
-        private int _authRetries;
+        private volatile HttpClient _httpClient;
+        private Dictionary<string, AmbientAuthenticationState> _authStates = new Dictionary<string, AmbientAuthenticationState>();
         private HttpHandlerResource _httpHandler;
         private CredentialHelper _credentials;
         private string _httpCacheDirectory;
@@ -170,7 +171,7 @@ namespace NuGet.Protocol
 
                         response.EnsureSuccessStatusCode();
 
-                        await CreateCacheFile(result, uri, response, cacheContext, ensureValidContents, token);
+                        await CreateCacheFileAsync(result, uri, response, cacheContext, ensureValidContents, token);
 
                         return new HttpSourceResult(
                             HttpSourceResultStatus.OpenedFromDisk,
@@ -310,7 +311,7 @@ namespace NuGet.Protocol
                     // Double check
                     if (_httpClient == null)
                     {
-                        await UpdateHttpClient();
+                        await UpdateHttpClientAsync();
                     }
                 }
                 finally
@@ -361,9 +362,11 @@ namespace NuGet.Protocol
                             continue;
                         }
 
-                        // Give up after 3 tries.
-                        _authRetries++;
-                        if (_authRetries > MaxAuthRetries)
+                        var authState = GetAuthenticationState();
+
+                        authState.Increment();
+
+                        if (authState.IsBlocked)
                         {
                             return response;
                         }
@@ -373,20 +376,47 @@ namespace NuGet.Protocol
                             STSAuthHelper.TryRetrieveSTSToken(_baseUri, CredentialStore.Instance, response))
                         {
                             // Auth token found, create a new message handler and retry.
-                            await UpdateHttpClient();
+                            await UpdateHttpClientAsync();
                             continue;
                         }
 
                         // Prompt the user
-                        promptCredentials = await PromptForCredentials(cancellationToken);
+                        CredentialRequestType type;
+                        string message;
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            type = CredentialRequestType.Unauthorized;
+                            message = string.Format(
+                                CultureInfo.CurrentCulture,
+                                Strings.Http_CredentialsForUnauthorized,
+                                _packageSource.Source);
+                        }
+                        else
+                        {
+                            type = CredentialRequestType.Forbidden;
+                            message = string.Format(
+                                CultureInfo.CurrentCulture,
+                                Strings.Http_CredentialsForForbidden,
+                                _packageSource.Source);
+                        }
+
+                        promptCredentials = await PromptForCredentialsAsync(
+                            type,
+                            message,
+                            cancellationToken);
 
                         if (promptCredentials != null)
                         {
                             // The user entered credentials, create a new message handler that includes
                             // these and retry.
-                            await UpdateHttpClient(promptCredentials);
+                            await UpdateHttpClientAsync(promptCredentials);
                             continue;
                         }
+
+                        // null means cancelled by user
+                        // block subsequent attempts to annoy user with prompts
+                        authState.IsBlocked = true;
+                        return response;
                     }
                     finally
                     {
@@ -403,11 +433,32 @@ namespace NuGet.Protocol
             }
         }
 
-        private async Task<ICredentials> PromptForCredentials(CancellationToken cancellationToken)
+        private AmbientAuthenticationState GetAuthenticationState()
+        {
+            var correlationId = ActivityCorrelationContext.Current.CorrelationId;
+
+            AmbientAuthenticationState authState;
+            if (!_authStates.TryGetValue(correlationId, out authState))
+            {
+                authState = new AmbientAuthenticationState
+                {
+                    IsBlocked = false,
+                    AuthenticationRetriesCount = 0
+                };
+                _authStates[correlationId] = authState;
+            }
+
+            return authState;
+        }
+
+        private async Task<ICredentials> PromptForCredentialsAsync(
+            CredentialRequestType type,
+            string message,
+            CancellationToken token)
         {
             ICredentials promptCredentials = null;
 
-            if (HttpHandlerResourceV3.PromptForCredentials != null)
+            if (HttpHandlerResourceV3.PromptForCredentialsAsync != null)
             {
                 try
                 {
@@ -415,7 +466,16 @@ namespace NuGet.Protocol
                     await _credentialPromptLock.WaitAsync();
 
                     promptCredentials =
-                        await HttpHandlerResourceV3.PromptForCredentials(_baseUri, cancellationToken);
+                        await HttpHandlerResourceV3.PromptForCredentialsAsync(_baseUri, type, message, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    throw; // pass-thru
+                }
+                catch (OperationCanceledException)
+                {
+                    // A valid response for VS dialog when user hits cancel button
+                    promptCredentials = null;
                 }
                 finally
                 {
@@ -426,16 +486,16 @@ namespace NuGet.Protocol
             return promptCredentials;
         }
 
-        private async Task UpdateHttpClient()
+        private async Task UpdateHttpClientAsync()
         {
             // Get package source credentials
             var credentials = CredentialStore.Instance.GetCredentials(_baseUri);
 
             if (credentials == null
-                && !String.IsNullOrEmpty(_packageSource.UserName)
-                && !String.IsNullOrEmpty(_packageSource.Password))
+                && _packageSource.Credentials != null
+                && _packageSource.Credentials.IsValid())
             {
-                credentials = new NetworkCredential(_packageSource.UserName, _packageSource.Password);
+                credentials = new NetworkCredential(_packageSource.Credentials.Username, _packageSource.Credentials.Password);
             }
 
             if (credentials != null)
@@ -443,10 +503,10 @@ namespace NuGet.Protocol
                 CredentialStore.Instance.Add(_baseUri, credentials);
             }
 
-            await UpdateHttpClient(credentials);
+            await UpdateHttpClientAsync(credentials);
         }
 
-        private async Task UpdateHttpClient(ICredentials credentials)
+        private async Task UpdateHttpClientAsync(ICredentials credentials)
         {
             if (_httpHandler == null)
             {
@@ -501,7 +561,7 @@ namespace NuGet.Protocol
             return new HttpCacheResult(maxAge, newFile, cacheFile);
         }
 
-        private async Task CreateCacheFile(
+        private async Task CreateCacheFileAsync(
             HttpCacheResult result,
             string uri,
             HttpResponseMessage response,
@@ -586,7 +646,7 @@ namespace NuGet.Protocol
                 if (!Directory.Exists(cacheFolder))
                 {
                     Directory.CreateDirectory(cacheFolder);
-                }   
+                }
             }
 
             if (File.Exists(cacheFile))

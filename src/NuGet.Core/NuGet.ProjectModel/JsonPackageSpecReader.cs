@@ -68,6 +68,7 @@ namespace NuGet.ProjectModel
             if (version == null)
             {
                 packageSpec.Version = new NuGetVersion("1.0.0");
+                packageSpec.IsDefaultVersion = true;
             }
             else
             {
@@ -217,7 +218,7 @@ namespace NuGet.ProjectModel
                     // Dependencies should allow everything but framework references.
                     var targetFlagsValue = isGacOrFrameworkReference
                                                     ? LibraryDependencyTarget.Reference
-                                                    : ~LibraryDependencyTarget.Reference;
+                                                    : LibraryDependencyTarget.All & ~LibraryDependencyTarget.Reference;
 
                     string dependencyVersionValue = null;
                     var dependencyVersionToken = dependencyValue;
@@ -525,13 +526,6 @@ namespace NuGet.ProjectModel
         private static bool BuildTargetFrameworkNode(PackageSpec packageSpec, KeyValuePair<string, JToken> targetFramework)
         {
             var frameworkName = GetFramework(targetFramework.Key);
-
-            // If it's not unsupported then keep it
-            if (frameworkName == NuGetFramework.UnsupportedFramework)
-            {
-                // REVIEW: Should we skip unsupported target frameworks
-                return false;
-            }
 
             var properties = targetFramework.Value.Value<JObject>();
 

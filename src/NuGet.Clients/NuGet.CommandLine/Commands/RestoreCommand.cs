@@ -96,7 +96,7 @@ namespace NuGet.CommandLine
                     cacheContext.NoCache = NoCache;
                     restoreContext.CacheContext = cacheContext;
                     restoreContext.DisableParallel = DisableParallelProcessing;
-                    restoreContext.ConfigFileName = ConfigFile;
+                    restoreContext.ConfigFile = ConfigFile;
                     restoreContext.MachineWideSettings = MachineWideSettings;
                     restoreContext.Sources = Source.ToList();
                     restoreContext.Log = Console;
@@ -304,7 +304,7 @@ namespace NuGet.CommandLine
             var collectorLogger = new CollectorLogger(Console);
             var projectContext = new ConsoleProjectContext(collectorLogger)
             {
-                PackageExtractionContext = new PackageExtractionContext()
+                PackageExtractionContext = new PackageExtractionContext(collectorLogger)
             };
 
             if (EffectivePackageSaveMode != Packaging.PackageSaveMode.None)
@@ -481,6 +481,11 @@ namespace NuGet.CommandLine
             else if (projectFileName.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
             {
                 ProcessSolutionFile(projectFilePath, packageRestoreInputs);
+            }
+            else
+            {
+                // Not a file we know about. Try to be helpful without response.
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, RestoreRunner.GetInvalidInputErrorMessage(projectFileName), projectFileName));
             }
         }
 

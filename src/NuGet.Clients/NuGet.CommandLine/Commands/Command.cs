@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using NuGet.Common;
 using NuGet.Protocol.Core.Types;
@@ -122,8 +124,31 @@ namespace NuGet.CommandLine
 
                 UserAgent.SetUserAgentString(new UserAgentStringBuilder(CommandLineConstants.UserAgent));
 
+                OutputNuGetVersion();
                 ExecuteCommandAsync().Wait();
             }
+        }
+
+        /// <summary>
+        /// Outputs the current NuGet version (by default, only when vebosity is detailed).
+        /// </summary>
+        private void OutputNuGetVersion()
+        {
+            if (ShouldOutputNuGetVersion)
+            {
+                var assemblyName = Assembly.GetExecutingAssembly().GetName();
+                var message = string.Format(
+                    CultureInfo.CurrentCulture,
+                    LocalizedResourceManager.GetString("OutputNuGetVersion"),
+                    assemblyName.Name,
+                    assemblyName.Version);
+                Console.WriteLine(message);
+            }
+        }
+
+        protected virtual bool ShouldOutputNuGetVersion
+        {
+            get { return Console.Verbosity == Verbosity.Detailed; }
         }
 
         /// <summary>
@@ -138,9 +163,13 @@ namespace NuGet.CommandLine
 
             NuGet.Protocol.Core.v3.HttpHandlerResourceV3.CredentialSerivce = credentialService;
             
-            NuGet.Protocol.Core.v3.HttpHandlerResourceV3.PromptForCredentials =
-                async (uri, cancellationToken) => await credentialService.GetCredentials(
-                    uri, proxy: null, isProxy: false, cancellationToken: cancellationToken);
+            NuGet.Protocol.Core.v3.HttpHandlerResourceV3.PromptForCredentialsAsync =
+                async (uri, type, message, cancellationToken) => await credentialService.GetCredentialsAsync(
+                    uri,
+                    proxy: null,
+                    type: type,
+                    message: message,
+                    cancellationToken: cancellationToken);
 
             NuGet.Protocol.Core.v3.HttpHandlerResourceV3.CredentialsSuccessfullyUsed = (uri, credentials) =>
             {

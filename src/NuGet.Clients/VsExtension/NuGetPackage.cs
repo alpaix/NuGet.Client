@@ -196,9 +196,27 @@ namespace NuGetVSExtension
                 if (_solutionManager == null)
                 {
                     _solutionManager = ServiceLocator.GetInstance<ISolutionManager>();
+                    _solutionManager.AfterNuGetProjectRenamed += SolutionManager_NuGetProjectRenamed;
                     Debug.Assert(_solutionManager != null);
                 }
                 return _solutionManager;
+            }
+        }
+
+        private void SolutionManager_NuGetProjectRenamed(object sender, NuGetProjectEventArgs e)
+        {
+            VSSolutionManager manager = SolutionManager as VSSolutionManager;
+            if (manager != null)
+            {
+                Project project = manager.GetDTEProject(manager.GetNuGetProjectSafeName(e.NuGetProject));
+                var windowFrame = FindExistingWindowFrame(project);
+                if (windowFrame != null)
+                {
+                    windowFrame.SetProperty((int) __VSFPROPID.VSFPROPID_OwnerCaption, String.Format(
+                        CultureInfo.CurrentCulture,
+                        Resx.Label_NuGetWindowCaption,
+                        project.Name));
+                }
             }
         }
 
@@ -344,16 +362,20 @@ namespace NuGetVSExtension
 
             NuGet.Protocol.Core.v3.HttpHandlerResourceV3.CredentialSerivce = credentialService;
 
-            NuGet.Protocol.Core.v3.HttpHandlerResourceV3.PromptForCredentials =
-                async (uri, cancellationToken) =>
+            NuGet.Protocol.Core.v3.HttpHandlerResourceV3.PromptForCredentialsAsync =
+                async (uri, type, message, cancellationToken) =>
                 {
                     // Get the proxy for this URI so we can pass it to the credentialService methods
                     // this lets them use the proxy if they have to hit the network.
                     var proxyCache = ProxyCache.Instance;
                     var proxy = proxyCache?.GetProxy(uri);
 
-                    return await credentialService
-                        .GetCredentials(uri, proxy: proxy, isProxy: false, cancellationToken: cancellationToken);
+                    return await credentialService.GetCredentialsAsync(
+                        uri,
+                        proxy,
+                        type,
+                        message,
+                        cancellationToken);
                 };
 
             NuGet.Protocol.Core.v3.HttpHandlerResourceV3.CredentialsSuccessfullyUsed = (uri, credentials) =>

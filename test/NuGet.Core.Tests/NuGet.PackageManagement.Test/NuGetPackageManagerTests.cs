@@ -1,6 +1,15 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using Moq;
+using NuGet.Frameworks;
+using NuGet.PackageManagement;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
+using NuGet.Protocol.Core.Types;
+using NuGet.Resolver;
+using NuGet.Test.Utility;
+using NuGet.Versioning;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -9,16 +18,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using Moq;
-using NuGet.Frameworks;
-using NuGet.PackageManagement;
-using NuGet.Packaging;
-using NuGet.Packaging.Core;
-using NuGet.ProjectManagement;
-using NuGet.Protocol.Core.Types;
-using NuGet.Resolver;
-using NuGet.Test.Utility;
-using NuGet.Versioning;
 using Test.Utility;
 using Xunit;
 using Strings = NuGet.ProjectManagement.Strings;
@@ -70,6 +69,80 @@ namespace NuGet.Test
                 new PackageIdentity("Microsoft.AspNet.Mvc.Razor", new NuGetVersion("6.0.0-beta3")),
                 new PackageIdentity("Microsoft.AspNet.Mvc.Core", new NuGetVersion("6.0.0-beta3"))
             };
+
+        // Install and uninstall a package while calling get installed on another thread
+        [Fact]
+        public async Task TestPacManInstallAndRequestInstalledPackages()
+        {
+            using (var packageSource = TestFileSystemUtility.CreateRandomTestFolder())
+            {
+                // Arrange
+                var sourceRepositoryProvider = TestSourceRepositoryUtility.CreateSourceRepositoryProvider(
+                    new List<Configuration.PackageSource>()
+                    {
+                        new Configuration.PackageSource(packageSource.Path)
+                    });
+
+                using (var testSolutionManager = new TestSolutionManager(true))
+                {
+                    var testSettings = new Configuration.NullSettings();
+                    var token = CancellationToken.None;
+                    var resolutionContext = new ResolutionContext();
+                    var testNuGetProjectContext = new TestNuGetProjectContext();
+                    var deleteOnRestartManager = new TestDeleteOnRestartManager();
+                    var nuGetPackageManager = new NuGetPackageManager(
+                        sourceRepositoryProvider,
+                        testSettings,
+                        testSolutionManager,
+                        deleteOnRestartManager);
+                    var packagesFolderPath = PackagesFolderPathUtility.GetPackagesFolderPath(testSolutionManager, testSettings);
+                    var packagePathResolver = new PackagePathResolver(packagesFolderPath);
+                    var projectA = testSolutionManager.AddNewMSBuildProject();
+
+                    var packageContext = new SimpleTestPackageContext("packageA");
+                    packageContext.AddFile("lib/net45/a.dll");
+                    SimpleTestPackageUtility.CreateOPCPackage(packageContext, packageSource);
+
+                    var run = true;
+
+                    var getInstalledTask = Task.Run(async () =>
+                    {
+                        // Get the list of installed packages
+                        while (run)
+                        {
+                            var projectAInstalled = (await projectA.GetInstalledPackagesAsync(token)).ToList();
+                        }
+                    });
+
+                    // Act
+                    // Install and Uninstall 50 times while polling for installed packages
+                    for (int i = 0; i < 50; i++)
+                    {
+                        // Install
+                        await nuGetPackageManager.InstallPackageAsync(projectA, "packageA",
+                            resolutionContext, testNuGetProjectContext, sourceRepositoryProvider.GetRepositories().First(), null, token);
+
+                        // Uninstall
+                        await nuGetPackageManager.UninstallPackageAsync(
+                            projectA,
+                            "packageA",
+                            new UninstallationContext(removeDependencies: false, forceRemove: true),
+                            testNuGetProjectContext,
+                            token);
+                    }
+
+                    // Check for exceptions thrown by the get installed task
+                    run = false;
+                    await getInstalledTask;
+
+                    var installed = (await projectA.GetInstalledPackagesAsync(token)).ToList();
+
+                    // Assert
+                    // Verify no exceptions and that the final package was removed
+                    Assert.Equal(0, installed.Count);
+                }
+            }
+        }
 
         [Fact]
         public async Task TestPacManInstallPackage()
@@ -408,6 +481,51 @@ namespace NuGet.Test
                     packageActions[0].SourceRepository.PackageSource.Source);
                 Assert.True(MorePackageWithDependents[3].Equals(packageActions[2].PackageIdentity));
                 Assert.Equal(NuGetProjectActionType.Install, packageActions[2].NuGetProjectActionType);
+                Assert.Equal(sourceRepositoryProvider.GetRepositories().Single().PackageSource.Source,
+                    packageActions[0].SourceRepository.PackageSource.Source);
+            }
+        }
+
+        [Fact]
+        public async Task TestPacManPreviewInstallMvcPackageWithPrereleaseFlagFalse()
+        {
+            // Arrange
+            var sourceRepositoryProvider = TestSourceRepositoryUtility.CreateV3OnlySourceRepositoryProvider();
+            using (var testSolutionManager = new TestSolutionManager(true))
+            {
+                var testSettings = new Configuration.NullSettings();
+                var token = CancellationToken.None;
+                var deleteOnRestartManager = new TestDeleteOnRestartManager();
+                var nuGetPackageManager = new NuGetPackageManager(
+                    sourceRepositoryProvider,
+                    testSettings,
+                    testSolutionManager,
+                    deleteOnRestartManager);
+                var packagesFolderPath = PackagesFolderPathUtility.GetPackagesFolderPath(testSolutionManager, testSettings);
+
+                var msBuildNuGetProject = testSolutionManager.AddNewMSBuildProject();
+                var msBuildNuGetProjectSystem = msBuildNuGetProject.MSBuildNuGetProjectSystem as TestMSBuildNuGetProjectSystem;
+                var packagesConfigPath = msBuildNuGetProject.PackagesConfigNuGetProject.FullPath;
+                var packageIdentity = LatestAspNetPackages[0]; // Microsoft.AspNet.Mvc.6.0.0-beta3
+
+                // Pre-Assert
+                // Check that the packages.config file does not exist
+                Assert.False(File.Exists(packagesConfigPath));
+                // Check that there are no packages returned by PackagesConfigProject
+                var packagesInPackagesConfig = (await msBuildNuGetProject.PackagesConfigNuGetProject.GetInstalledPackagesAsync(token)).ToList();
+                Assert.Equal(0, packagesInPackagesConfig.Count);
+                Assert.Equal(0, msBuildNuGetProjectSystem.References.Count);
+
+                var resolutionContext = new ResolutionContext(DependencyBehavior.Lowest, includePrelease: false, includeUnlisted: true, versionConstraints: VersionConstraints.None);
+
+                // Act
+                var packageActions = (await nuGetPackageManager.PreviewInstallPackageAsync(msBuildNuGetProject, packageIdentity,
+                    resolutionContext, new TestNuGetProjectContext(), sourceRepositoryProvider.GetRepositories().First(), null, token)).ToList();
+
+                // Assert
+                Assert.Equal(1, packageActions.Count);
+                Assert.True(LatestAspNetPackages[0].Equals(packageActions[0].PackageIdentity));
+                Assert.Equal(NuGetProjectActionType.Install, packageActions[0].NuGetProjectActionType);
                 Assert.Equal(sourceRepositoryProvider.GetRepositories().Single().PackageSource.Source,
                     packageActions[0].SourceRepository.PackageSource.Source);
             }
@@ -2470,6 +2588,83 @@ namespace NuGet.Test
         }
 
         [Fact]
+        public async Task TestPacManPreviewInstallPackageWithNonTargetDependency()
+        {
+            // Arrange            
+
+            // Set up Package Source
+            var packages = new List<SourcePackageDependencyInfo>
+            {
+                new SourcePackageDependencyInfo("a", new NuGetVersion(1, 0, 0), new[] { new Packaging.Core.PackageDependency("b", new VersionRange(new NuGetVersion(1, 0, 0), true, new NuGetVersion(1, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("a", new NuGetVersion(2, 0, 0), new[] { new Packaging.Core.PackageDependency("b", new VersionRange(new NuGetVersion(2, 0, 0), true, new NuGetVersion(2, 0, 0), true)),
+                    new Packaging.Core.PackageDependency("c", new VersionRange(new NuGetVersion(2, 0, 0), true, new NuGetVersion(2, 0, 0), true))}, true, null),
+                new SourcePackageDependencyInfo("b", new NuGetVersion(1, 0, 0), new[] { new Packaging.Core.PackageDependency("d", new VersionRange(new NuGetVersion(1, 0, 0), true, new NuGetVersion(1, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("b", new NuGetVersion(2, 0, 0), new[] { new Packaging.Core.PackageDependency("d", new VersionRange(new NuGetVersion(2, 0, 0), true, new NuGetVersion(2, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("c", new NuGetVersion(1, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("c", new NuGetVersion(2, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("d", new NuGetVersion(1, 0, 0), new[] { new Packaging.Core.PackageDependency("e", new VersionRange(new NuGetVersion(1, 0, 0), true, new NuGetVersion(1, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("d", new NuGetVersion(2, 0, 0), new[] { new Packaging.Core.PackageDependency("e", new VersionRange(new NuGetVersion(2, 0, 0), true, new NuGetVersion(2, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("e", new NuGetVersion(1, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("e", new NuGetVersion(2, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("f", new NuGetVersion(1, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("f", new NuGetVersion(2, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("f", new NuGetVersion(3, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("f", new NuGetVersion(4, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+            };
+
+            var sourceRepositoryProvider = CreateSource(packages);
+
+            // Set up NuGetProject
+            var fwk45 = NuGetFramework.Parse("net45");
+
+            var installedPackages = new List<NuGet.Packaging.PackageReference>
+            {
+                new NuGet.Packaging.PackageReference(new PackageIdentity("a", new NuGetVersion(1, 0, 0)), fwk45, true),
+                new NuGet.Packaging.PackageReference(new PackageIdentity("b", new NuGetVersion(1, 0, 0)), fwk45, true),
+                new NuGet.Packaging.PackageReference(new PackageIdentity("d", new NuGetVersion(1, 0, 0)), fwk45, true),
+                new NuGet.Packaging.PackageReference(new PackageIdentity("e", new NuGetVersion(1, 0, 0)), fwk45, true),
+                new NuGet.Packaging.PackageReference(new PackageIdentity("f", new NuGetVersion(1, 0, 0)), fwk45, true),
+            };
+
+            var nuGetProject = new TestNuGetProject(installedPackages);
+
+            // Create Package Manager
+            using (var solutionManager = new TestSolutionManager(true))
+            {
+                var nuGetPackageManager = new NuGetPackageManager(
+                    sourceRepositoryProvider,
+                    new Configuration.NullSettings(),
+                    solutionManager,
+                    new TestDeleteOnRestartManager());
+
+                // Main Act
+
+                var target = new PackageIdentity("d", new NuGetVersion(2, 0, 0));
+
+                var result = await nuGetPackageManager.PreviewInstallPackageAsync(
+                    nuGetProject,
+                    target,
+                    new ResolutionContext(),
+                    new TestNuGetProjectContext(),
+                    sourceRepositoryProvider.GetRepositories(),
+                    sourceRepositoryProvider.GetRepositories(),
+                    CancellationToken.None);
+
+                // Assert
+                var resulting = result.Select(a => Tuple.Create(a.PackageIdentity, a.NuGetProjectActionType)).ToList();
+
+                var expected = new List<Tuple<PackageIdentity, NuGetProjectActionType>>();
+                Expected(expected, target.Id, new NuGetVersion(1, 0, 0), target.Version);
+                Expected(expected, "e", new NuGetVersion(1, 0, 0), new NuGetVersion(2, 0, 0));
+                Expected(expected, "b", new NuGetVersion(1, 0, 0), new NuGetVersion(2, 0, 0));
+                Expected(expected, "a", new NuGetVersion(1, 0, 0), new NuGetVersion(2, 0, 0));
+                Expected(expected, "c", new NuGetVersion(2, 0, 0));
+
+                Assert.True(Compare(resulting, expected));
+            }
+        }
+
+        [Fact]
         public async Task TestPacManPreviewUpdateMultiWithConflict()
         {
             // Arrange
@@ -2517,6 +2712,76 @@ namespace NuGet.Test
                 {
                     new PackageIdentity("a", new NuGetVersion(2, 0, 0)),
                     new PackageIdentity("b", new NuGetVersion(3, 0, 0)),
+                };
+
+                try
+                {
+                    await nuGetPackageManager.PreviewUpdatePackagesAsync(
+                        targets,
+                        nuGetProject,
+                        new ResolutionContext(),
+                        new TestNuGetProjectContext(),
+                        sourceRepositoryProvider.GetRepositories(),
+                        sourceRepositoryProvider.GetRepositories(),
+                        CancellationToken.None);
+
+                    Assert.True(false);
+                }
+                catch (Exception e)
+                {
+                    Assert.IsType(typeof(InvalidOperationException), e);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task TestPacManPreviewUpdateMultiWithDowngradeConflict()
+        {
+            // Arrange
+
+            // Set up Package Source
+            var packages = new List<SourcePackageDependencyInfo>
+            {
+                new SourcePackageDependencyInfo("a", new NuGetVersion(1, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("a", new NuGetVersion(2, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("a", new NuGetVersion(3, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("b", new NuGetVersion(1, 0, 0), new[] { new Packaging.Core.PackageDependency("a", new VersionRange(new NuGetVersion(1, 0, 0), true, new NuGetVersion(1, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("b", new NuGetVersion(2, 0, 0), new[] { new Packaging.Core.PackageDependency("a", new VersionRange(new NuGetVersion(2, 0, 0), true, new NuGetVersion(3, 0, 0), true)) }, true, null),
+                new SourcePackageDependencyInfo("b", new NuGetVersion(3, 0, 0), new[] { new Packaging.Core.PackageDependency("a", new VersionRange(new NuGetVersion(2, 0, 0), true, new NuGetVersion(3, 0, 0), false)) }, true, null),
+                new SourcePackageDependencyInfo("c", new NuGetVersion(1, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("c", new NuGetVersion(2, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+                new SourcePackageDependencyInfo("c", new NuGetVersion(3, 0, 0), new Packaging.Core.PackageDependency[] { }, true, null),
+            };
+
+            var sourceRepositoryProvider = CreateSource(packages);
+
+            // Set up NuGetProject
+            var fwk45 = NuGetFramework.Parse("net45");
+
+            var installedPackages = new List<NuGet.Packaging.PackageReference>
+            {
+                new NuGet.Packaging.PackageReference(new PackageIdentity("a", new NuGetVersion(2, 0, 0)), fwk45, true),
+                new NuGet.Packaging.PackageReference(new PackageIdentity("b", new NuGetVersion(3, 0, 0)), fwk45, true),
+                new NuGet.Packaging.PackageReference(new PackageIdentity("c", new NuGetVersion(2, 0, 0)), fwk45, true),
+            };
+
+            var nuGetProject = new TestNuGetProject(installedPackages);
+
+            // Create Package Manager
+            using (var solutionManager = new TestSolutionManager(true))
+            {
+                var nuGetPackageManager = new NuGetPackageManager(
+                    sourceRepositoryProvider,
+                    new Configuration.NullSettings(),
+                    solutionManager,
+                    new TestDeleteOnRestartManager());
+
+                // Main Act
+
+                var targets = new List<PackageIdentity>
+                {
+                    new PackageIdentity("a", new NuGetVersion(3, 0, 0)),
+                    new PackageIdentity("c", new NuGetVersion(3, 0, 0)),
                 };
 
                 try
@@ -4177,41 +4442,42 @@ namespace NuGet.Test
         }
 
         [Fact]
-        public async Task ExecuteNuGetProjectActionsAsync_FailsIfThePackageTypeUsesManagedCodeConventions()
+        public async Task ExecuteNuGetProjectActionsAsync_FailsIfThePackageTypeIsManaged()
         {
-            // Arrange
-            var packageSource = new Configuration.PackageSource("some source");
-            var packageSourceProvider = new TestPackageSourceProvider(new[] { packageSource });
-            var sourceRepositoryProvider = new SourceRepositoryProvider(
-                packageSourceProvider,
-                new[] { new Lazy<INuGetResourceProvider>(() => new TestDownloadResourceProvider()) });
-            var testSettings = Configuration.NullSettings.Instance;
-            using (var testSolutionManager = new TestSolutionManager(true))
-            {
-                var deleteOnRestartManager = new TestDeleteOnRestartManager();
-                var nugetProject = new TestNuGetProject(new Packaging.PackageReference[0]);
-
-                var nuGetPackageManager = new NuGetPackageManager(
-                    sourceRepositoryProvider,
-                    testSettings,
-                    testSolutionManager,
-                    deleteOnRestartManager);
-                var identity = new PackageIdentity("ManagedCodeConventions", NuGetVersion.Parse("1.0.0"));
-                var actions = new[] { NuGetProjectAction.CreateInstallProjectAction(identity, sourceRepositoryProvider.CreateRepository(packageSource)) };
-
-                // Act and Assert
-                var ex = await Assert.ThrowsAsync<PackageManagement.NuGetVersionNotSatisfiedException>(() =>
-                    nuGetPackageManager.ExecuteNuGetProjectActionsAsync(
-                        nugetProject,
-                        actions,
-                        new TestNuGetProjectContext(),
-                        default(CancellationToken)));
-                Assert.Equal("Package 'ManagedCodeConventions 1.0.0' uses features that are not supported by the current version of NuGet. " +
-                    "To upgrade NuGet, see http://docs.nuget.org/consume/installing-nuget.", ex.Message);
-            }
+            await VerifyFailureForPackageTypes(new[] { new PackageType("Managed", new Version(2, 0)) });
         }
 
         [Fact]
+        public async Task ExecuteNuGetProjectActionsAsync_FailsIfThePackageTypeIsUnexpected()
+        {
+            await VerifyFailureForPackageTypes(new[] { new PackageType("Fake", new Version(1, 2)) });
+        }
+
+        [Fact]
+        public async Task ExecuteNuGetProjectActionsAsync_FailsIfThePackageTypeIsDotnetCliTool()
+        {
+            await VerifyFailureForPackageTypes(new[] { PackageType.DotnetCliTool });
+        }
+
+        [Fact]
+        public async Task ExecuteNuGetProjectActionsAsync_FailsIfThePackageTypeIsDependency()
+        {
+            await VerifyFailureForPackageTypes(new[] { PackageType.Dependency });
+        }
+
+        [Fact]
+        public async Task ExecuteNuGetProjectActionsAsync_FailsIfMultiplePackageTypes()
+        {
+            await VerifyFailureForPackageTypes(new[] { PackageType.Legacy, PackageType.Legacy });
+        }
+
+        [Fact]
+        public async Task ExecuteNuGetProjectActionsAsync_SucceedsIfThePackageTypeIsLegacy()
+        {
+            await VerifySuccessForPackageTypes(new[] { PackageType.Legacy });
+        }
+
+        // [Fact]
         public async Task TestPacManUpdatePackagePreservePackagesConfigAttributes()
         {
             // Arrange
@@ -4421,29 +4687,105 @@ namespace NuGet.Test
             var packageDependency = packageInfo.Dependencies.Single();
             Assert.Equal("b", packageDependency.Id);
             Assert.Equal(bVersionRange.ToString(), packageDependency.VersionRange.ToString());
-            Assert.True(packageDependency.VersionRange.IncludePrerelease);
+        }
+
+        private static async Task VerifyFailureForPackageTypes(IReadOnlyList<PackageType> packageTypes)
+        {
+            // Arrange
+            var packageSource = new Configuration.PackageSource("some source");
+            var packageSourceProvider = new TestPackageSourceProvider(new[] { packageSource });
+            var sourceRepositoryProvider = new SourceRepositoryProvider(
+                packageSourceProvider,
+                new[] { new Lazy<INuGetResourceProvider>(() => new TestDownloadResourceProvider(packageTypes)) });
+            var testSettings = Configuration.NullSettings.Instance;
+            using (var testSolutionManager = new TestSolutionManager(true))
+            {
+                var deleteOnRestartManager = new TestDeleteOnRestartManager();
+                var nugetProject = new TestNuGetProject(new Packaging.PackageReference[0]);
+
+                var nuGetPackageManager = new NuGetPackageManager(
+                    sourceRepositoryProvider,
+                    testSettings,
+                    testSolutionManager,
+                    deleteOnRestartManager);
+                var identity = new PackageIdentity("ManagedCodeConventions", NuGetVersion.Parse("1.0.0"));
+                var actions = new[] { NuGetProjectAction.CreateInstallProjectAction(identity, sourceRepositoryProvider.CreateRepository(packageSource)) };
+
+                // Act and Assert
+                var ex = await Assert.ThrowsAsync<PackageManagement.NuGetVersionNotSatisfiedException>(() =>
+                    nuGetPackageManager.ExecuteNuGetProjectActionsAsync(
+                        nugetProject,
+                        actions,
+                        new TestNuGetProjectContext(),
+                        default(CancellationToken)));
+                Assert.Equal("Package 'ManagedCodeConventions 1.0.0' uses features that are not supported by the current version of NuGet. " +
+                    "To upgrade NuGet, see http://docs.nuget.org/consume/installing-nuget.", ex.Message);
+            }
+        }
+
+        private static async Task VerifySuccessForPackageTypes(IReadOnlyList<PackageType> packageTypes)
+        {
+            // Arrange
+            var packageSource = new Configuration.PackageSource("some source");
+            var packageSourceProvider = new TestPackageSourceProvider(new[] { packageSource });
+            var sourceRepositoryProvider = new SourceRepositoryProvider(
+                packageSourceProvider,
+                new[] { new Lazy<INuGetResourceProvider>(() => new TestDownloadResourceProvider(packageTypes)) });
+            var testSettings = Configuration.NullSettings.Instance;
+            using (var testSolutionManager = new TestSolutionManager(true))
+            {
+                var deleteOnRestartManager = new TestDeleteOnRestartManager();
+                var nugetProject = new TestNuGetProject(new Packaging.PackageReference[0]);
+
+                var nuGetPackageManager = new NuGetPackageManager(
+                    sourceRepositoryProvider,
+                    testSettings,
+                    testSolutionManager,
+                    deleteOnRestartManager);
+                var identity = new PackageIdentity("ManagedCodeConventions", NuGetVersion.Parse("1.0.0"));
+                var actions = new[] { NuGetProjectAction.CreateInstallProjectAction(identity, sourceRepositoryProvider.CreateRepository(packageSource)) };
+
+                // Act
+                await nuGetPackageManager.ExecuteNuGetProjectActionsAsync(
+                        nugetProject,
+                        actions,
+                        new TestNuGetProjectContext(),
+                        default(CancellationToken));
+
+                // No exception should be thrown.
+            }
         }
 
         private class TestDownloadResourceProvider : ResourceProvider
         {
-            public TestDownloadResourceProvider()
+            private readonly IReadOnlyList<PackageType> _packageTypes;
+
+            public TestDownloadResourceProvider(IReadOnlyList<PackageType> packageTypes)
                 : base(typeof(DownloadResource))
             {
+                _packageTypes = packageTypes;
             }
 
             public override Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
             {
-                INuGetResource resource = new TestDownloadResource();
+                INuGetResource resource = new TestDownloadResource(_packageTypes);
                 return Task.FromResult(Tuple.Create(true, resource));
             }
         }
 
         private class TestDownloadResource : DownloadResource
         {
+            private readonly IReadOnlyList<PackageType> _packageTypes;
+
+            public TestDownloadResource(IReadOnlyList<PackageType> _packageTypes)
+            {
+                this._packageTypes = _packageTypes;
+            }
+
             public override Task<DownloadResourceResult> GetDownloadResourceResultAsync(
                 PackageIdentity identity,
                 Configuration.ISettings settings,
-                NuGet.Common.ILogger logger,
+                Common.ILogger logger,
                 CancellationToken token)
             {
                 var packageReader = new Mock<PackageReaderBase>(
@@ -4460,8 +4802,8 @@ namespace NuGet.Test
                     .Setup(p => p.GetMinClientVersion())
                     .Returns(new NuGetVersion(2, 0, 0));
                 packageReader
-                    .Setup(p => p.GetPackageType())
-                    .Returns(new PackageType("Managed", new Version(2, 0)));
+                    .Setup(p => p.GetPackageTypes())
+                    .Returns(_packageTypes);
 
                 return Task.FromResult(new DownloadResourceResult(Stream.Null, packageReader.Object));
             }

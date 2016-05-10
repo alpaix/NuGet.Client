@@ -1096,6 +1096,15 @@ namespace NuGet.CommandLine {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The remote server indicated that the previous request was forbidden. Please provide credentials for: {0}.
+        /// </summary>
+        public static string Credentials_ForbiddenCredentials {
+            get {
+                return ResourceManager.GetString("Credentials_ForbiddenCredentials", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Password: .
         /// </summary>
         public static string Credentials_Password {
@@ -2316,6 +2325,15 @@ namespace NuGet.CommandLine {
         public static string DeleteCommandDeletingPackage_trk {
             get {
                 return ResourceManager.GetString("DeleteCommandDeletingPackage_trk", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid AssemblyInformationalVersion {0} on assembly {1}..
+        /// </summary>
+        public static string Error_AssemblyInformationalVersion {
+            get {
+                return ResourceManager.GetString("Error_AssemblyInformationalVersion", resourceCulture);
             }
         }
         
@@ -6780,6 +6798,15 @@ namespace NuGet.CommandLine {
         public static string OptionInvalidWithoutSetter_trk {
             get {
                 return ResourceManager.GetString("OptionInvalidWithoutSetter_trk", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} Version: {1}.
+        /// </summary>
+        public static string OutputNuGetVersion {
+            get {
+                return ResourceManager.GetString("OutputNuGetVersion", resourceCulture);
             }
         }
         

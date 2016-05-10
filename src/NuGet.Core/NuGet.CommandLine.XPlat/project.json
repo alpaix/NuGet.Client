@@ -24,15 +24,17 @@
     "NuGet.Commands": {
       "target": "project"
     },
-    "System.Runtime.Serialization.Primitives": "4.1.1-rc2-24008"
+    "System.Runtime.Serialization.Primitives": "4.1.1-rc2-24027"
   },
   "commands": {
     "NuGet.CommandLine.XPlat": "NuGet.CommandLine.XPlat"
   },
   "frameworks": {
     "net46": {
-      "frameworkAssemblies": {
-        "System.Collections": ""
+      "compilationOptions": {
+        "define": [
+          "IS_DESKTOP"
+        ]
       }
     },
     "netcoreapp1.0": {
@@ -42,11 +44,16 @@
         "portable-net45+win8"
       ],
       "dependencies": {
-        "System.Runtime.InteropServices.RuntimeInformation": "4.0.0-rc2-24008",
+        "System.Runtime.InteropServices.RuntimeInformation": "4.0.0-rc2-24027",
         "Microsoft.NETCore.App": {
           "type": "platform",
           "version": "1.0.0-rc2-3002339"
         }
+      },
+      "compilationOptions": {
+        "define": [
+          "IS_CORECLR"
+        ]
       }
     }
   }

@@ -25,10 +25,10 @@ namespace NuGet.Packaging.Test
                 // Act
                 var files = PackageExtractor.ExtractPackage(
                     packageReader,
-                                                                 packageStream,
-                                                                 new PackagePathResolver(root),
-                                                                 new PackageExtractionContext(),
-                                                                 CancellationToken.None);
+                    packageStream,
+                    new PackagePathResolver(root),
+                    new PackageExtractionContext(NullLogger.Instance),
+                    CancellationToken.None);
                 // Assert
                 Assert.DoesNotContain(Path.Combine(packagePath + "[Content_Types].xml"), files);
                 Assert.Contains(Path.Combine(packagePath, "content" + Path.DirectorySeparatorChar + "[Content_Types].xml"), files);
@@ -54,14 +54,47 @@ namespace NuGet.Packaging.Test
                     {
                         // Act
                         var files = PackageExtractor.ExtractPackage(folderReader,
-                                                                         stream,
-                                                                         new PackagePathResolver(root),
-                                                                         new PackageExtractionContext(),
-                                                                         CancellationToken.None);
+                            stream,
+                            new PackagePathResolver(root),
+                            new PackageExtractionContext(NullLogger.Instance),
+                            CancellationToken.None);
 
                         // Assert
                         Assert.Equal(1, files.Where(p => p.EndsWith(".nupkg")).Count());
                     }
+                }
+            }
+        }
+
+        [Fact]
+        public async Task PackageExtractor_NupkgContent()
+        {
+            // Arrange
+            using (var root = TestFileSystemUtility.CreateRandomTestFolder())
+            {
+                var packageFileInfo = await TestPackages.GeneratePackageAsync(
+                   root,
+                   "A",
+                   "2.0.4",
+                   DateTimeOffset.UtcNow.LocalDateTime,
+                   "content/A.nupkg");
+
+                using (var packageStream = File.OpenRead(packageFileInfo.FullName))
+                {
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
+                    {
+                        XmlDocFileSaveMode = XmlDocFileSaveMode.None
+                    };
+
+                    // Act
+                    var packageFiles = PackageExtractor.ExtractPackage(
+                        packageStream,
+                        new PackagePathResolver(root),
+                        packageExtractionContext,
+                        CancellationToken.None);
+
+                    // Assert
+                    Assert.True(File.Exists(Path.Combine(root, "A.2.0.4", "content", "A.nupkg")));
                 }
             }
         }
@@ -80,7 +113,7 @@ namespace NuGet.Packaging.Test
                 {
                     zipFile.ExtractAll(packageFolder);
 
-                    var packageExtractionContext = new PackageExtractionContext();
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance);
                     packageExtractionContext.PackageSaveMode = PackageSaveMode.Nupkg;
 
                     // Act
@@ -111,7 +144,7 @@ namespace NuGet.Packaging.Test
                 {
                     zipFile.ExtractAll(packageFolder);
 
-                    var packageExtractionContext = new PackageExtractionContext();
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance);
                     packageExtractionContext.PackageSaveMode = PackageSaveMode.Nuspec;
 
                     // Act
@@ -142,7 +175,7 @@ namespace NuGet.Packaging.Test
                 {
                     zipFile.ExtractAll(packageFolder);
 
-                    var packageExtractionContext = new PackageExtractionContext();
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance);
                     packageExtractionContext.PackageSaveMode = PackageSaveMode.Nuspec | PackageSaveMode.Nupkg;
 
                     // Act
@@ -171,7 +204,7 @@ namespace NuGet.Packaging.Test
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 using (var satellitePackageStream = File.OpenRead(satellitePackageInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext();
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance);
 
                     // Act
                     var packageFiles = PackageExtractor.ExtractPackage(packageStream,
@@ -212,7 +245,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.None
                     };
@@ -249,7 +282,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Compress
                     };
@@ -298,7 +331,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Compress
                     };
@@ -338,7 +371,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Skip
                     };
@@ -378,7 +411,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Skip
                     };
@@ -429,7 +462,7 @@ namespace NuGet.Packaging.Test
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 using (var satellitePackageStream = File.OpenRead(satellitePackageInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Skip
                     };
@@ -474,7 +507,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Compress
                     };
@@ -512,7 +545,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         XmlDocFileSaveMode = XmlDocFileSaveMode.Compress
                     };
@@ -547,7 +580,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         PackageSaveMode = PackageSaveMode.Nupkg | PackageSaveMode.Nuspec
                     };
@@ -584,7 +617,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         PackageSaveMode = PackageSaveMode.Nupkg | PackageSaveMode.Files
                     };
@@ -621,7 +654,7 @@ namespace NuGet.Packaging.Test
 
                 using (var packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         PackageSaveMode = PackageSaveMode.Nuspec | PackageSaveMode.Files
                     };
@@ -765,7 +798,7 @@ namespace NuGet.Packaging.Test
 
                 using (FileStream packageStream = File.OpenRead(packageFileInfo.FullName))
                 {
-                    var packageExtractionContext = new PackageExtractionContext
+                    var packageExtractionContext = new PackageExtractionContext(NullLogger.Instance)
                     {
                         PackageSaveMode = PackageSaveMode.Nuspec | PackageSaveMode.Files
                     };

@@ -60,6 +60,15 @@ namespace NuGet.Packaging {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Unsupported targetFramework value &apos;{0}&apos;..
+        /// </summary>
+        internal static string Error_InvalidTargetFramework {
+            get {
+                return ResourceManager.GetString("Error_InvalidTargetFramework", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to There are duplicate packages: {0}.
         /// </summary>
         internal static string ErrorDuplicatePackages {
@@ -110,6 +119,15 @@ namespace NuGet.Packaging {
         internal static string ErrorUnableToDeleteFile {
             get {
                 return ResourceManager.GetString("ErrorUnableToDeleteFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Failed to update file time for {0}: {1}.
+        /// </summary>
+        internal static string FailedFileTime {
+            get {
+                return ResourceManager.GetString("FailedFileTime", resourceCulture);
             }
         }
         

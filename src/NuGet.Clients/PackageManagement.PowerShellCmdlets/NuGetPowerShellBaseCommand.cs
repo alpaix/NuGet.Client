@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using EnvDTE;
 using Microsoft.VisualStudio.Threading;
+using NuGet.Common;
 using NuGet.PackageManagement.UI;
 using NuGet.PackageManagement.VisualStudio;
 using NuGet.Packaging;
@@ -74,6 +75,8 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
             {
                 ExecutionContext = new IDEExecutionContext(_commonOperations);
             }
+
+            ActivityCorrelationContext.StartNew();
         }
 
         #region Properties
@@ -195,6 +198,9 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "We want to display friendly message to the console.")]
         protected override sealed void ProcessRecord()
         {
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+
             try
             {
                 ProcessRecordCore();
@@ -210,6 +216,9 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
             {
                 UnsubscribeEvents();
             }
+
+            stopWatch.Stop();
+            LogCore(ProjectManagement.MessageLevel.Info, string.Format(CultureInfo.CurrentCulture, Resources.Cmdlet_TotalTime, stopWatch.Elapsed));
         }
 
         /// <summary>

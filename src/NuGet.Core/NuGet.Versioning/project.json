@@ -13,30 +13,28 @@
   ],
   "compilationOptions": {
     "warningsAsErrors": true,
-    "xmlDoc": true,
-    "nowarn": [
-      "CS1591",
-      "CS1573"
-    ]
+    "xmlDoc": true
   },
   "compile": [
     "../NuGet.Shared/*.cs"
   ],
   "frameworks": {
     "net45": {
-      "frameworkAssemblies": {
-        "System.IO.Compression": ""
+      "compilationOptions": {
+        "define": [
+          "IS_DESKTOP"
+        ]
       }
     },
-    "netstandard1.5": {
+    "netstandard1.0": {
       "dependencies": {
-        "NETStandard.Library": "1.5.0-rc2-24008"
+        "NETStandard.Library": "1.5.0-rc2-24027"
       },
-      "imports": [
-        "dotnet5.6",
-        "dnxcore50",
-        "portable-net45+win8"
-      ]
+      "compilationOptions": {
+        "define": [
+          "IS_CORECLR"
+        ]
+      }
     }
   }
 }
