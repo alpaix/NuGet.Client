@@ -11,7 +11,7 @@ using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
-namespace NuGet.Protocol.Core.Types
+namespace NuGet.Protocol
 {
     public abstract class FindPackageByIdResource : INuGetResource
     {

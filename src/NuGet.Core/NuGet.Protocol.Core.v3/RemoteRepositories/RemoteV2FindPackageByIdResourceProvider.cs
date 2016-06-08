@@ -17,79 +17,6 @@ namespace NuGet.Protocol
     /// </summary>
     public class RemoteV2FindPackageByIdResourceProvider : ResourceProvider
     {
-        public class FindPackageByIdProxyResource : FindPackageByIdResource
-        {
-            private static readonly string ResourceName = nameof(FindPackageByIdResource);
-
-            private readonly Configuration.PackageSource _packageSource;
-            private readonly FindPackageByIdResource _inner;
-            private readonly IPackageSourceDiagnostics _diagnostics;
-
-            public FindPackageByIdProxyResource(Configuration.PackageSource packageSource, FindPackageByIdResource inner, IPackageSourceDiagnostics diagnostics)
-            {
-                if (packageSource == null)
-                {
-                    throw new ArgumentNullException(nameof(packageSource));
-                }
-
-                _packageSource = packageSource;
-
-                if (inner == null)
-                {
-                    throw new ArgumentNullException(nameof(inner));
-                }
-
-                _inner = inner;
-
-                if (diagnostics == null)
-                {
-                    throw new ArgumentNullException(nameof(diagnostics));
-                }
-
-                _diagnostics = diagnostics;
-            }
-
-            public override Task<IEnumerable<NuGetVersion>> GetAllVersionsAsync(string id, CancellationToken token)
-            {
-                return _diagnostics.TraceActionAsync(
-                    _packageSource.Name, 
-                    ResourceName, 
-                    nameof(FindPackageByIdResource.GetAllVersionsAsync),
-                    t => _inner.GetAllVersionsAsync(id, t),
-                    token);
-            }
-
-            public override Task<FindPackageByIdDependencyInfo> GetDependencyInfoAsync(string id, NuGetVersion version, CancellationToken token)
-            {
-                return _diagnostics.TraceActionAsync(
-                    _packageSource.Name, 
-                    ResourceName, 
-                    nameof(FindPackageByIdResource.GetDependencyInfoAsync),
-                    t => _inner.GetDependencyInfoAsync(id, version, t),
-                    token);
-            }
-
-            public override Task<Stream> GetNupkgStreamAsync(string id, NuGetVersion version, CancellationToken token)
-            {
-                return _diagnostics.TraceActionAsync(
-                    _packageSource.Name, 
-                    ResourceName, 
-                    nameof(FindPackageByIdResource.GetNupkgStreamAsync),
-                    t => _inner.GetNupkgStreamAsync(id, version, t),
-                    token);
-            }
-
-            public override Task<PackageIdentity> GetOriginalIdentityAsync(string id, NuGetVersion version, CancellationToken token)
-            {
-                return _diagnostics.TraceActionAsync(
-                    _packageSource.Name, 
-                    ResourceName, 
-                    nameof(FindPackageByIdResource.GetOriginalIdentityAsync),
-                    t => _inner.GetOriginalIdentityAsync(id, version, t),
-                    token);
-            }
-        }
-
         public RemoteV2FindPackageByIdResourceProvider()
             : base(
                 typeof(FindPackageByIdResource),
@@ -100,7 +27,7 @@ namespace NuGet.Protocol
 
         public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            INuGetResource resource = null;
+            FindPackageByIdResource resource = null;
 
             if (sourceRepository.PackageSource.IsHttp
                 &&
@@ -108,14 +35,21 @@ namespace NuGet.Protocol
             {
                 var httpSourceResource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
 
-                var innerResource = new RemoteV2FindPackageByIdResource(
+                resource = new RemoteV2FindPackageByIdResource(
                     sourceRepository.PackageSource,
                     httpSourceResource.HttpSource);
 
+            }
+
+            if (resource != null)
+            {
+                var diagnosticResource = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>();
+                if (diagnosticResource != null)
+                {}
                 resource = new FindPackageByIdProxyResource(sourceRepository.PackageSource, innerResource, diagnostics: null);
             }
 
-            return Tuple.Create(resource != null, resource);
+            return Tuple.Create(resource != null, (INuGetResource)resource);
         }
     }
 }

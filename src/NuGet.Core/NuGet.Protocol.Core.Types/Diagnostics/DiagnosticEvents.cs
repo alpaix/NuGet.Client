@@ -8,42 +8,51 @@ namespace NuGet.Protocol
 {
     public static class DiagnosticEvents
     {
-        public static DiagnosticEvent Started(string source, string resource, string operation)
+        public static DiagnosticEvent Started(string resource, string operation, string tag)
         {
             return new DiagnosticEvent(
-                eventId: Guid.NewGuid().ToString(),
+                eventType: EventType.Started,
                 eventTime: DateTime.UtcNow,
-                source: source,
+                correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
-                activity: ActivityCorrelationContext.Current.CorrelationId,
                 operation: operation,
-                eventType: EventType.Started
+                tag: tag
             );
         }
 
-        public static DiagnosticEvent Failed(string source, string resource, string operation)
+        public static DiagnosticEvent Failed(string resource, string operation, string tag)
         {
             return new DiagnosticEvent(
-                eventId: Guid.NewGuid().ToString(),
+                eventType: EventType.Failed,
                 eventTime: DateTime.UtcNow,
-                source: source,
+                correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
-                activity: ActivityCorrelationContext.Current.CorrelationId,
                 operation: operation,
-                eventType: EventType.Failed
+                tag: tag
             );
         }
 
-        public static DiagnosticEvent Completed(string source, string resource, string operation)
+        public static DiagnosticEvent Cancelled(string resource, string operation, string tag)
         {
             return new DiagnosticEvent(
-                eventId: Guid.NewGuid().ToString(),
+                eventType: EventType.Cancelled,
                 eventTime: DateTime.UtcNow,
-                source: source,
+                correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
-                activity: ActivityCorrelationContext.Current.CorrelationId,
                 operation: operation,
-                eventType: EventType.Completed
+                tag: tag
+            );
+        }
+
+        public static DiagnosticEvent Completed(string resource, string operation, string tag)
+        {
+            return new DiagnosticEvent(
+                eventType: EventType.Completed,
+                eventTime: DateTime.UtcNow,
+                correlationId: ActivityCorrelationContext.Current.CorrelationId,
+                resource: resource,
+                operation: operation,
+                tag: tag
             );
         }
     }

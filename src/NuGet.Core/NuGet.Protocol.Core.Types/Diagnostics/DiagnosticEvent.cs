@@ -9,36 +9,35 @@ namespace NuGet.Protocol
     {
         Started,
         Failed,
+        Cancelled,
         Completed
     }
 
     public class DiagnosticEvent
     {
-        public string EventId { get; }
+        public string EventId { get; } = Guid.NewGuid().ToString();
         public DateTime EventTime { get; }
         public EventType EventType { get; }
-        public string Source { get; }
+        public string CorrelationId { get; }
         public string Resource { get; }
-        public string Activity { get; }
         public string Operation { get; }
+        public string Tag { get; }
 
         public DiagnosticEvent(
-            string eventId,
-            DateTime eventTime,
             EventType eventType,
-            string source,
+            DateTime eventTime,
+            string correlationId,
             string resource,
-            string activity,
-            string operation
+            string operation,
+            string tag
         )
         {
-            EventId = eventId;
-            EventTime = eventTime;
             EventType = eventType;
-            Source = source;
+            EventTime = eventTime;
+            CorrelationId = correlationId;
             Resource = resource;
-            Activity = activity;
             Operation = operation;
+            Tag = tag;
         }
     }
 }

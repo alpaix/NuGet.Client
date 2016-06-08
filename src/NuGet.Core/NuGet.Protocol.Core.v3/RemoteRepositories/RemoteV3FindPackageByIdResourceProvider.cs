@@ -32,6 +32,13 @@ namespace NuGet.Protocol
                     httpSourceResource.HttpSource);
             }
 
+            var diagnosticResource = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>();
+
+            if (diagnosticResource != null)
+            {
+                var proxyResource = new FindPackageByIdProxyResource();
+            }
+
             return Tuple.Create(resource != null, resource);
         }
     }
