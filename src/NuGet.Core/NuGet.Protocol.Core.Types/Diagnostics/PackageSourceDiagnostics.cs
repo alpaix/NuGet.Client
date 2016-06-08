@@ -13,6 +13,8 @@ namespace NuGet.Protocol
 
         public PackageSource PackageSource { get; }
 
+        public IEnumerable<DiagnosticEvent> Events => _diagnosticEvents;
+
         public PackageSourceDiagnostics(PackageSource packageSource)
         {
             if (packageSource == null)

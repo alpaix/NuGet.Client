@@ -13,6 +13,7 @@ using NuGet.ProjectManagement;
 using NuGet.Protocol.Core.Types;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
+using NuGet.Protocol;
 
 namespace NuGet.CommandLine
 {
@@ -318,6 +319,28 @@ namespace NuGet.CommandLine
                 CancellationToken.None);
 
             project.Save();
+
+            Console.WriteLine("Feed metrics:");
+            foreach (var sourceRepository in sourceRepositories)
+            {
+                Console.WriteLine($"  {sourceRepository.PackageSource.Source}");
+
+                var dr = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(CancellationToken.None);
+                var d = dr.PackageSourceDiagnostics;
+
+                var table = new OutputTable<DiagnosticEvent>();
+                table
+                    .WithColumn("Time", e => e.EventTime.ToString())
+                    .WithColumn("Type", e => e.EventType.ToString())
+                    .WithColumn("CorrelationId", e => e.CorrelationId)
+                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}.{e.Tag}");
+
+                table.PrintHeaders(System.Console.Out);
+                foreach(var e in d.Events)
+                {
+                    table.PrintRow(System.Console.Out, e);
+                }
+            }
         }
 
         private CommandLineSourceRepositoryProvider GetSourceRepositoryProvider()

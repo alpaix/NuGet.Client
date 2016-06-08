@@ -22,7 +22,7 @@ namespace NuGet.Protocol
         public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
             INuGetResource resource = null;
-            var serviceIndexResource = await sourceRepository.GetResourceAsync<ServiceIndexResourceV3>();
+            var serviceIndexResource = await sourceRepository.GetResourceAsync<ServiceIndexResourceV3>(token);
             var packageBaseAddress = serviceIndexResource?[HttpFileSystemIndexType];
 
             if (packageBaseAddress != null
@@ -30,9 +30,12 @@ namespace NuGet.Protocol
             {
                 var httpSourceResource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
 
-                resource = new HttpFileSystemBasedFindPackageByIdResource(
-                    packageBaseAddress,
-                    httpSourceResource.HttpSource);
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
+                    sourceRepository,
+                    innerResource: new HttpFileSystemBasedFindPackageByIdResource(
+                        packageBaseAddress,
+                        httpSourceResource.HttpSource),
+                    cancellationToken: token);
             }
 
             return Tuple.Create(resource != null, resource);

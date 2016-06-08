@@ -18,17 +18,20 @@ namespace NuGet.Protocol
         {
         }
 
-        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
             INuGetResource resource = null;
 
-            var feedType = await source.GetFeedType(token);
+            var feedType = await sourceRepository.GetFeedType(token);
 
             // Default to v3 if the type is unknown
             if (feedType == FeedType.FileSystemV3
                 || feedType == FeedType.FileSystemUnknown)
             {
-                resource = new LocalV3FindPackageByIdResource(source.PackageSource);
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
+                    sourceRepository,
+                    innerResource: new LocalV3FindPackageByIdResource(sourceRepository.PackageSource),
+                    cancellationToken: token);
             }
 
             return Tuple.Create(resource != null, resource);

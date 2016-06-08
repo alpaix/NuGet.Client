@@ -2,13 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using NuGet.Packaging.Core;
 using NuGet.Protocol.Core.Types;
-using NuGet.Versioning;
 
 namespace NuGet.Protocol
 {
@@ -27,7 +23,7 @@ namespace NuGet.Protocol
 
         public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            FindPackageByIdResource resource = null;
+            INuGetResource resource = null;
 
             if (sourceRepository.PackageSource.IsHttp
                 &&
@@ -35,21 +31,15 @@ namespace NuGet.Protocol
             {
                 var httpSourceResource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
 
-                resource = new RemoteV2FindPackageByIdResource(
-                    sourceRepository.PackageSource,
-                    httpSourceResource.HttpSource);
-
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
+                    sourceRepository,
+                    innerResource: new RemoteV2FindPackageByIdResource(
+                        sourceRepository.PackageSource,
+                        httpSourceResource.HttpSource),
+                    cancellationToken: token);
             }
 
-            if (resource != null)
-            {
-                var diagnosticResource = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>();
-                if (diagnosticResource != null)
-                {}
-                resource = new FindPackageByIdProxyResource(sourceRepository.PackageSource, innerResource, diagnostics: null);
-            }
-
-            return Tuple.Create(resource != null, (INuGetResource)resource);
+            return Tuple.Create(resource != null, resource);
         }
     }
 }

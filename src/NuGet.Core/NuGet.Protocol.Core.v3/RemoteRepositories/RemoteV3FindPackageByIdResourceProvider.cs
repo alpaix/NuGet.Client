@@ -21,22 +21,18 @@ namespace NuGet.Protocol
         {
             INuGetResource resource = null;
 
-            var serviceIndexResource = await sourceRepository.GetResourceAsync<ServiceIndexResourceV3>();
+            var serviceIndexResource = await sourceRepository.GetResourceAsync<ServiceIndexResourceV3>(token);
 
             if (serviceIndexResource != null)
             {
                 var httpSourceResource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
 
-                resource = new RemoteV3FindPackageByIdResource(
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
                     sourceRepository,
-                    httpSourceResource.HttpSource);
-            }
-
-            var diagnosticResource = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>();
-
-            if (diagnosticResource != null)
-            {
-                var proxyResource = new FindPackageByIdProxyResource();
+                    innerResource: new RemoteV3FindPackageByIdResource(
+                        sourceRepository,
+                        httpSourceResource.HttpSource),
+                    cancellationToken: token);
             }
 
             return Tuple.Create(resource != null, resource);

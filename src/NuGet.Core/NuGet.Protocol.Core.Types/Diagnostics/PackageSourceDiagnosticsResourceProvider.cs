@@ -15,9 +15,9 @@ namespace NuGet.Protocol
         {
         }
 
-        public override Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            var diagnostics = new PackageSourceDiagnostics(source.PackageSource);
+            var diagnostics = new PackageSourceDiagnostics(sourceRepository.PackageSource);
             INuGetResource resource = new PackageSourceDiagnosticsResource
             {
                 PackageSourceDiagnostics = diagnostics

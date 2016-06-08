@@ -7,25 +7,26 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using NuGet.Packaging.Core;
+using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 
 namespace NuGet.Protocol
 {
-    public class FindPackageByIdProxyResource : FindPackageByIdResource
+    public class FindPackageByIdProxyResource : FindPackageByIdResource, IProxyResource
     {
         private static readonly string ResourceName = nameof(FindPackageByIdResource);
 
         private readonly FindPackageByIdResource _inner;
         private readonly IPackageSourceDiagnostics _diagnostics;
 
-        public FindPackageByIdProxyResource(FindPackageByIdResource inner, IPackageSourceDiagnostics diagnostics)
+        public FindPackageByIdProxyResource(INuGetResource inner, IPackageSourceDiagnostics diagnostics)
         {
             if (inner == null)
             {
                 throw new ArgumentNullException(nameof(inner));
             }
 
-            _inner = inner;
+            _inner = (FindPackageByIdResource)inner;
 
             if (diagnostics == null)
             {

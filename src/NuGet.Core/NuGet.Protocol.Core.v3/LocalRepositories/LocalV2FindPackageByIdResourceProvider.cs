@@ -2,8 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NuGet.Protocol.Core.Types;
@@ -22,14 +20,17 @@ namespace NuGet.Protocol
         {
         }
 
-        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
             INuGetResource resource = null;
 
-            var feedType = await source.GetFeedType(token);
+            var feedType = await sourceRepository.GetFeedType(token);
             if (feedType == FeedType.FileSystemV2)
             {
-                resource = new LocalV2FindPackageByIdResource(source.PackageSource);
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
+                    sourceRepository,
+                    innerResource: new LocalV2FindPackageByIdResource(sourceRepository.PackageSource),
+                    cancellationToken: token);
             }
 
             return Tuple.Create(resource != null, resource);
