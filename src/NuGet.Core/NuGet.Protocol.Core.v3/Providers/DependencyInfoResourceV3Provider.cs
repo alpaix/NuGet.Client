@@ -18,20 +18,23 @@ namespace NuGet.Protocol
         {
         }
 
-        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            DependencyInfoResource curResource = null;
+            INuGetResource resource = null;
 
-            if (await source.GetResourceAsync<ServiceIndexResourceV3>(token) != null)
+            if (await sourceRepository.GetResourceAsync<ServiceIndexResourceV3>(token) != null)
             {
-                var httpSourceResource = await source.GetResourceAsync<HttpSourceResource>(token);
-                var regResource = await source.GetResourceAsync<RegistrationResourceV3>(token);
+                var httpSourceResource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
+                var regResource = await sourceRepository.GetResourceAsync<RegistrationResourceV3>(token);
 
                 // construct a new resource
-                curResource = new DependencyInfoResourceV3(httpSourceResource.HttpSource, regResource, source);
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<DependencyInfoProxyResource>(
+                    sourceRepository,
+                    innerResource: new DependencyInfoResourceV3(httpSourceResource.HttpSource, regResource, sourceRepository),
+                    cancellationToken: token);
             }
 
-            return new Tuple<bool, INuGetResource>(curResource != null, curResource);
+            return Tuple.Create(resource != null, resource);
         }
     }
 }

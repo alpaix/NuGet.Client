@@ -320,10 +320,10 @@ namespace NuGet.CommandLine
 
             project.Save();
 
-            Console.WriteLine("Feed metrics:");
+            Console.WriteLine();
             foreach (var sourceRepository in sourceRepositories)
             {
-                Console.WriteLine($"  {sourceRepository.PackageSource.Source}");
+                Console.WriteLine($"Feed metrics: {sourceRepository.PackageSource.Source}");
 
                 var dr = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(CancellationToken.None);
                 var d = dr.PackageSourceDiagnostics;
@@ -332,8 +332,8 @@ namespace NuGet.CommandLine
                 table
                     .WithColumn("Time", e => e.EventTime.ToString())
                     .WithColumn("Type", e => e.EventType.ToString())
-                    .WithColumn("CorrelationId", e => e.CorrelationId)
-                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}.{e.Tag}");
+                    .WithColumn("CorrelationId", e => e.CorrelationId, 15)
+                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}.{e.Tag}", 40);
 
                 table.PrintHeaders(System.Console.Out);
                 foreach(var e in d.Events)
