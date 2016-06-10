@@ -157,6 +157,7 @@ namespace NuGet.Protocol.Core.Types
                     var result = await provider.TryCreate(this, token);
                     if (result.Item1)
                     {
+                        System.Console.WriteLine($">>> Requested: {typeof(T).Name} for {PackageSource.Name}");
                         return (T)result.Item2;
                     }
                 }

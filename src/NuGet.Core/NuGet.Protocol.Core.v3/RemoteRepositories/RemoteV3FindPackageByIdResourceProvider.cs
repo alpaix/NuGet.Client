@@ -27,7 +27,7 @@ namespace NuGet.Protocol
             {
                 var httpSourceResource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
 
-                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<FindPackageByIdProxyResource>(
                     sourceRepository,
                     innerResource: new RemoteV3FindPackageByIdResource(
                         sourceRepository,

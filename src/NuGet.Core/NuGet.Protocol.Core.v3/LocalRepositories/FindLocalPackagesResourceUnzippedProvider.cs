@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,17 +21,22 @@ namespace NuGet.Protocol
         {
         }
 
-        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            FindLocalPackagesResource curResource = null;
+            INuGetResource resource = null;
 
-            if (await source.GetFeedType(token) == FeedType.FileSystemUnzipped)
+            if (await sourceRepository.GetFeedType(token) == FeedType.FileSystemUnzipped)
             {
-                curResource = _cache.GetOrAdd(source.PackageSource, 
+                resource = _cache.GetOrAdd(sourceRepository.PackageSource,
                     (packageSource) => new FindLocalPackagesResourceUnzipped(packageSource.Source));
+
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<FindLocalPackagesProxyResource>(
+                    sourceRepository,
+                    innerResource: resource,
+                    cancellationToken: token);
             }
 
-            return new Tuple<bool, INuGetResource>(curResource != null, curResource);
+            return Tuple.Create(resource != null, resource);
         }
     }
 }

@@ -10,7 +10,7 @@ namespace NuGet.Protocol
 {
     public static class ProxyResourceFactory
     {
-        public static async Task<INuGetResource> CreateDiagnosticsProxyResourceAsync<TProxyResource>(
+        public static async Task<INuGetResource> CreateDiagnosticsProxyAsync<TProxyResource>(
             SourceRepository sourceRepository, 
             INuGetResource innerResource,
             CancellationToken cancellationToken)

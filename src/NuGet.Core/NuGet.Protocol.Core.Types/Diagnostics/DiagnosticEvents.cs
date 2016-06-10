@@ -16,11 +16,12 @@ namespace NuGet.Protocol
                 correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
                 operation: operation,
-                tag: tag
+                tag: tag,
+                latency: TimeSpan.Zero
             );
         }
 
-        public static DiagnosticEvent Failed(string resource, string operation, string tag)
+        public static DiagnosticEvent Failed(string resource, string operation, string tag, TimeSpan latency)
         {
             return new DiagnosticEvent(
                 eventType: EventType.Failed,
@@ -28,11 +29,12 @@ namespace NuGet.Protocol
                 correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
                 operation: operation,
-                tag: tag
+                tag: tag,
+                latency: latency
             );
         }
 
-        public static DiagnosticEvent Cancelled(string resource, string operation, string tag)
+        public static DiagnosticEvent Cancelled(string resource, string operation, string tag, TimeSpan latency)
         {
             return new DiagnosticEvent(
                 eventType: EventType.Cancelled,
@@ -40,11 +42,12 @@ namespace NuGet.Protocol
                 correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
                 operation: operation,
-                tag: tag
+                tag: tag,
+                latency: latency
             );
         }
 
-        public static DiagnosticEvent Completed(string resource, string operation, string tag)
+        public static DiagnosticEvent Completed(string resource, string operation, string tag, TimeSpan latency)
         {
             return new DiagnosticEvent(
                 eventType: EventType.Completed,
@@ -52,7 +55,8 @@ namespace NuGet.Protocol
                 correlationId: ActivityCorrelationContext.Current.CorrelationId,
                 resource: resource,
                 operation: operation,
-                tag: tag
+                tag: tag,
+                latency: latency
             );
         }
     }

@@ -38,7 +38,7 @@ namespace NuGet.Protocol
 
         public override Task<IEnumerable<NuGetVersion>> GetAllVersionsAsync(string id, CancellationToken token)
         {
-            return _diagnostics.TraceActionAsync(
+            return _diagnostics.TraceAsync(
                 ResourceName,
                 nameof(FindPackageByIdResource.GetAllVersionsAsync),
                 t => _inner.GetAllVersionsAsync(id, t),
@@ -47,7 +47,7 @@ namespace NuGet.Protocol
 
         public override Task<FindPackageByIdDependencyInfo> GetDependencyInfoAsync(string id, NuGetVersion version, CancellationToken token)
         {
-            return _diagnostics.TraceActionAsync(
+            return _diagnostics.TraceAsync(
                 ResourceName,
                 nameof(FindPackageByIdResource.GetDependencyInfoAsync),
                 t => _inner.GetDependencyInfoAsync(id, version, t),
@@ -56,7 +56,7 @@ namespace NuGet.Protocol
 
         public override Task<Stream> GetNupkgStreamAsync(string id, NuGetVersion version, CancellationToken token)
         {
-            return _diagnostics.TraceActionAsync(
+            return _diagnostics.TraceAsync(
                 ResourceName,
                 nameof(FindPackageByIdResource.GetNupkgStreamAsync),
                 t => _inner.GetNupkgStreamAsync(id, version, t),
@@ -65,7 +65,7 @@ namespace NuGet.Protocol
 
         public override Task<PackageIdentity> GetOriginalIdentityAsync(string id, NuGetVersion version, CancellationToken token)
         {
-            return _diagnostics.TraceActionAsync(
+            return _diagnostics.TraceAsync(
                 ResourceName,
                 nameof(FindPackageByIdResource.GetOriginalIdentityAsync),
                 t => _inner.GetOriginalIdentityAsync(id, version, t),

@@ -28,7 +28,7 @@ namespace NuGet.Protocol
             if (feedType == FeedType.FileSystemV3
                 || feedType == FeedType.FileSystemUnknown)
             {
-                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<FindPackageByIdProxyResource>(
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<FindPackageByIdProxyResource>(
                     sourceRepository,
                     innerResource: new LocalV3FindPackageByIdResource(sourceRepository.PackageSource),
                     cancellationToken: token);

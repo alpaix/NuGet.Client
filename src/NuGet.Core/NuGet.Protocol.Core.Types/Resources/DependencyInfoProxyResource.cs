@@ -37,7 +37,7 @@ namespace NuGet.Protocol
 
         public override Task<SourcePackageDependencyInfo> ResolvePackage(PackageIdentity package, NuGetFramework projectFramework, ILogger log, CancellationToken token)
         {
-            return _diagnostics.TraceActionAsync(
+            return _diagnostics.TraceAsync(
                 ResourceName,
                 nameof(DependencyInfoResource.ResolvePackage),
                 t => _inner.ResolvePackage(package, projectFramework, log, t),
@@ -46,7 +46,7 @@ namespace NuGet.Protocol
 
         public override Task<IEnumerable<SourcePackageDependencyInfo>> ResolvePackages(string packageId, NuGetFramework projectFramework, ILogger log, CancellationToken token)
         {
-            return _diagnostics.TraceActionAsync(
+            return _diagnostics.TraceAsync(
                 ResourceName,
                 nameof(DependencyInfoResource.ResolvePackage),
                 t => _inner.ResolvePackages(packageId, projectFramework, log, t),

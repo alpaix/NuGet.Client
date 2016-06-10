@@ -28,7 +28,7 @@ namespace NuGet.Protocol
                 var regResource = await sourceRepository.GetResourceAsync<RegistrationResourceV3>(token);
 
                 // construct a new resource
-                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<DependencyInfoProxyResource>(
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<DependencyInfoProxyResource>(
                     sourceRepository,
                     innerResource: new DependencyInfoResourceV3(httpSourceResource.HttpSource, regResource, sourceRepository),
                     cancellationToken: token);

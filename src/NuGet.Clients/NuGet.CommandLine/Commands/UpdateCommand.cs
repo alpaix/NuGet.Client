@@ -330,10 +330,13 @@ namespace NuGet.CommandLine
 
                 var table = new OutputTable<DiagnosticEvent>();
                 table
-                    .WithColumn("Time", e => e.EventTime.ToString())
-                    .WithColumn("Type", e => e.EventType.ToString())
-                    .WithColumn("CorrelationId", e => e.CorrelationId, 15)
-                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}.{e.Tag}", 40);
+                    .WithColumn("Time", e => e.EventTime.ToLongTimeString(), 12)
+                    .WithColumn("Type", e => e.EventType.ToString(), 12)
+                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}", 40)
+                    //.WithColumn("CorrelationId", e => e.CorrelationId, 40)
+                    .WithColumn("Tag", e => e.Tag, 40)
+                    .WithColumn("Latency", e => DatetimeUtility.ToReadableTimeFormat(e.Latency))
+                    ;
 
                 table.PrintHeaders(System.Console.Out);
                 foreach(var e in d.Events)

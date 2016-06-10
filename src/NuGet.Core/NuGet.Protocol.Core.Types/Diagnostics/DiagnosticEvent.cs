@@ -22,6 +22,7 @@ namespace NuGet.Protocol
         public string Resource { get; }
         public string Operation { get; }
         public string Tag { get; }
+        public TimeSpan Latency { get; }
 
         public DiagnosticEvent(
             EventType eventType,
@@ -29,7 +30,8 @@ namespace NuGet.Protocol
             string correlationId,
             string resource,
             string operation,
-            string tag
+            string tag,
+            TimeSpan latency
         )
         {
             EventType = eventType;
@@ -38,6 +40,7 @@ namespace NuGet.Protocol
             Resource = resource;
             Operation = operation;
             Tag = tag;
+            Latency = latency;
         }
     }
 }

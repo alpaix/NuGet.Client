@@ -28,7 +28,7 @@ namespace NuGet.Protocol
                 var httpSource = await sourceRepository.GetResourceAsync<HttpSourceResource>(token);
                 var parser = new V2FeedParser(httpSource.HttpSource, serviceDocument.BaseAddress, sourceRepository.PackageSource);
 
-                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<DependencyInfoProxyResource>(
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<DependencyInfoProxyResource>(
                     sourceRepository,
                     innerResource: new DependencyInfoResourceV2Feed(parser, sourceRepository),
                     cancellationToken: token);

@@ -23,7 +23,7 @@ namespace NuGet.Protocol
 
             if (localResource != null)
             {
-                resource = await ProxyResourceFactory.CreateDiagnosticsProxyResourceAsync<DependencyInfoProxyResource>(
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<DependencyInfoProxyResource>(
                     sourceRepository,
                     innerResource: new LocalDependencyInfoResource(localResource, sourceRepository),
                     cancellationToken: token);
