@@ -15,6 +15,8 @@ namespace NuGet.Protocol
 
         IEnumerable<DiagnosticEvent> Events { get; }
 
+        IReadOnlyList<DiagnosticMessage> DiagnosticMessages { get; }
+
         // source, resource, activity, operation?, started, complete-status, completed
         void RecordEvent(DiagnosticEvent @event);
 

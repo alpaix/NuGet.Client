@@ -332,10 +332,10 @@ namespace NuGet.CommandLine
                 table
                     .WithColumn("Time", e => e.EventTime.ToLongTimeString(), 12)
                     .WithColumn("Type", e => e.EventType.ToString(), 12)
-                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}", 40)
+                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}", 45)
                     //.WithColumn("CorrelationId", e => e.CorrelationId, 40)
                     .WithColumn("Tag", e => e.Tag, 40)
-                    .WithColumn("Latency", e => DatetimeUtility.ToReadableTimeFormat(e.Latency))
+                    .WithColumn("Latency", e => e.Latency != TimeSpan.Zero ? DatetimeUtility.ToReadableTimeFormat(e.Latency) : "--")
                     ;
 
                 table.PrintHeaders(System.Console.Out);
