@@ -7,10 +7,10 @@ namespace NuGet.Protocol
 {
     public enum EventType
     {
-        Started,
-        Failed,
         Cancelled,
-        Completed
+        Completed,
+        Failed,
+        Started
     }
 
     public class DiagnosticEvent
@@ -23,6 +23,8 @@ namespace NuGet.Protocol
         public string Operation { get; }
         public string Tag { get; }
         public TimeSpan Latency { get; }
+
+        public bool Is(EventType eventType) => EventType == eventType;
 
         public DiagnosticEvent(
             EventType eventType,

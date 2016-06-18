@@ -328,6 +328,11 @@ namespace NuGet.CommandLine
                 var dr = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(CancellationToken.None);
                 var d = dr.PackageSourceDiagnostics;
 
+                foreach (var msg in d.DiagnosticMessages)
+                {
+                    Console.WriteWarning(msg.Details);
+                }
+
                 var table = new OutputTable<DiagnosticEvent>();
                 table
                     .WithColumn("Time", e => e.EventTime.ToLongTimeString(), 12)
