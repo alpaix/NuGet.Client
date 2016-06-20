@@ -337,14 +337,14 @@ namespace NuGet.CommandLine
                 table
                     .WithColumn("Time", e => e.EventTime.ToLongTimeString(), 12)
                     .WithColumn("Type", e => e.EventType.ToString(), 12)
-                    .WithColumn("Operation", e => $"{e.Resource}.{e.Operation}", 45)
+                    .WithColumn("Operation", e => e.Operation, 80)
                     //.WithColumn("CorrelationId", e => e.CorrelationId, 40)
-                    .WithColumn("Tag", e => e.Tag, 40)
+                    //.WithColumn("Tag", e => e.Tag, 40)
                     .WithColumn("Latency", e => e.Latency != TimeSpan.Zero ? DatetimeUtility.ToReadableTimeFormat(e.Latency) : "--")
                     ;
 
                 table.PrintHeaders(System.Console.Out);
-                foreach(var e in d.Events)
+                foreach(var e in d.Events.Where(e => !e.Is(EventType.Started)))
                 {
                     table.PrintRow(System.Console.Out, e);
                 }

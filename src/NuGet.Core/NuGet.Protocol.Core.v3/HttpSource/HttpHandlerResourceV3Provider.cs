@@ -21,21 +21,22 @@ namespace NuGet.Protocol
         {
         }
 
-        public override Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            Debug.Assert(source.PackageSource.IsHttp, "HTTP handler requested for a non-http source.");
+            Debug.Assert(sourceRepository.PackageSource.IsHttp, "HTTP handler requested for a non-http source.");
 
-            HttpHandlerResourceV3 curResource = null;
+            INuGetResource resource = null;
 
-            if (source.PackageSource.IsHttp)
+            if (sourceRepository.PackageSource.IsHttp)
             {
-                curResource = CreateResource(source.PackageSource);
+                var diagnosticsResource = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(token);
+                resource = CreateResource(sourceRepository.PackageSource, diagnosticsResource?.PackageSourceDiagnostics);
             }
 
-            return Task.FromResult(new Tuple<bool, INuGetResource>(curResource != null, curResource));
+            return Tuple.Create(resource != null, resource);
         }
 
-        private static HttpHandlerResourceV3 CreateResource(PackageSource packageSource)
+        private static HttpHandlerResourceV3 CreateResource(PackageSource packageSource, IPackageSourceDiagnostics diagnostics)
         {
             var sourceUri = packageSource.SourceUri;
             var proxy = ProxyCache.Instance.GetProxy(sourceUri);
@@ -48,17 +49,21 @@ namespace NuGet.Protocol
             };
 
             // HTTP handler pipeline can be injected here, around the client handler
-            HttpMessageHandler messageHandler = clientHandler;
+            HttpMessageHandler messageHandler = new HttpSourceDiagnosticsHandler(packageSource, diagnostics)
+            {
+                InnerHandler = clientHandler
+            };
 
             if (proxy != null)
             {
-                messageHandler = new ProxyAuthenticationHandler(clientHandler, HttpHandlerResourceV3.CredentialService, ProxyCache.Instance);
+                messageHandler = new ProxyAuthenticationHandler(clientHandler, HttpHandlerResourceV3.CredentialService, ProxyCache.Instance)
+                {
+                    InnerHandler = messageHandler
+                };
             }
 
 #if !IS_CORECLR
             {
-                var innerHandler = messageHandler;
-
                 messageHandler = new StsAuthenticationHandler(packageSource, TokenStore.Instance)
                 {
                     InnerHandler = messageHandler
@@ -66,11 +71,9 @@ namespace NuGet.Protocol
             }
 #endif
             {
-                var innerHandler = messageHandler;
-
                 messageHandler = new HttpSourceAuthenticationHandler(packageSource, clientHandler, HttpHandlerResourceV3.CredentialService)
                 {
-                    InnerHandler = innerHandler
+                    InnerHandler = messageHandler
                 };
             }
 
