@@ -40,6 +40,7 @@ namespace NuGet.Protocol
                 if (metrics.SlowRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
+                        PackageSource,
                         SourceStatus.SlowSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.SlowRequestsCount, metrics.TotalRequestsCount)} of source requests took more than {DatetimeUtility.ToReadableTimeFormat(SlowSourceThreshold)}.");
                 }
@@ -47,6 +48,7 @@ namespace NuGet.Protocol
                 if (metrics.CancelledRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
+                        PackageSource,
                         SourceStatus.UnreliableSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.CancelledRequestsCount, metrics.TotalRequestsCount)} of source requests were cancelled.");
                 }
@@ -54,6 +56,7 @@ namespace NuGet.Protocol
                 if (metrics.FailedRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
+                        PackageSource,
                         SourceStatus.UnreliableSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.FailedRequestsCount, metrics.TotalRequestsCount)} of source requests failed.");
                 }
@@ -61,6 +64,7 @@ namespace NuGet.Protocol
                 if (metrics.IncompleteRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
+                        PackageSource,
                         SourceStatus.SlowSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.IncompleteRequestsCount, metrics.TotalRequestsCount)} of source requests are incomplete.");
                 }
@@ -68,6 +72,7 @@ namespace NuGet.Protocol
                 if (metrics.TimedOutRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
+                        PackageSource,
                         SourceStatus.UnresponsiveSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.TimedOutRequestsCount, metrics.TotalRequestsCount)} of source requests timed out");
                 }

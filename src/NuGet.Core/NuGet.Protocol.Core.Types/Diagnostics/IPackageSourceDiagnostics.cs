@@ -20,8 +20,6 @@ namespace NuGet.Protocol
         // source, resource, activity, operation?, started, complete-status, completed
         void RecordEvent(DiagnosticEvent @event);
 
-        void Reset();
-
         Task<T> TraceAsync<T>(
             string resource,
             string operation,

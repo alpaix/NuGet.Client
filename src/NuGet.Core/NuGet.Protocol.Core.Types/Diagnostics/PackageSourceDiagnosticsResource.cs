@@ -9,10 +9,7 @@ namespace NuGet.Protocol
 {
     public class PackageSourceDiagnosticsResource : INuGetResource
     {
-        private readonly PackageSource _packageSource;
-        private Lazy<IPackageSourceDiagnostics> _packageSourceDiagnostics;
-
-        public IPackageSourceDiagnostics PackageSourceDiagnostics => _packageSourceDiagnostics.Value;
+        public PackageSourceDiagnostics PackageSourceDiagnostics { get; }
 
         public PackageSourceDiagnosticsResource(PackageSource packageSource)
         {
@@ -21,16 +18,12 @@ namespace NuGet.Protocol
                 throw new ArgumentNullException(nameof(packageSource));
             }
 
-            _packageSource = packageSource;
-            _packageSourceDiagnostics = new Lazy<IPackageSourceDiagnostics>(() => new PackageSourceDiagnostics(_packageSource));
+            PackageSourceDiagnostics = new PackageSourceDiagnostics(packageSource);
         }
 
         public void ResetDiagnosticsData()
         {
-            if (_packageSourceDiagnostics.IsValueCreated)
-            {
-                _packageSourceDiagnostics = new Lazy<IPackageSourceDiagnostics>(() => new PackageSourceDiagnostics(_packageSource));
-            }
+            PackageSourceDiagnostics.Reset();
         }
     }
 }

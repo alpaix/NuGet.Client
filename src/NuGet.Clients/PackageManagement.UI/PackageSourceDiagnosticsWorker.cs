@@ -7,30 +7,22 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Threading;
-using NuGet.Configuration;
-using NuGet.ProjectManagement;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 
 namespace NuGet.PackageManagement.UI
 {
-    public class PackageSourceDiagnosticsWorker
+    public class PackageSourceDiagnosticsWorker : IObservable<DiagnosticMessage>
     {
+        private readonly List<IObserver<DiagnosticMessage>> _observers = new List<IObserver<DiagnosticMessage>>();
         private readonly IEnumerable<SourceRepository> _activeSources;
-        private readonly IActionEventSink _actionEventSink;
-        private readonly INuGetProjectContext _logger;
 
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private JoinableTask _task;
 
-        public PackageSourceDiagnosticsWorker(
-            IEnumerable<SourceRepository> activeSources,
-            IActionEventSink actionEventSink,
-            INuGetProjectContext logger)
+        public PackageSourceDiagnosticsWorker(IEnumerable<SourceRepository> activeSources)
         {
             _activeSources = activeSources;
-            _actionEventSink = actionEventSink;
-            _logger = logger;
         }
 
         public static PackageSourceDiagnosticsWorker Create(INuGetUI uiService)
@@ -40,15 +32,21 @@ namespace NuGet.PackageManagement.UI
                 throw new ArgumentNullException(nameof(uiService));
             }
 
-            return new PackageSourceDiagnosticsWorker(uiService.ActiveSources, uiService.ActionEventSink, uiService.ProgressWindow);
+            var observer = new PackageSourceDiagnosticsObserver(uiService.ActionEventSink, uiService.ProgressWindow);
+
+            var worker = new PackageSourceDiagnosticsWorker(uiService.ActiveSources);
+            worker.Subscribe(observer);
+
+            return worker;
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            foreach (var sourceRepository in _activeSources)
+            var diagnosticsResources = await GetDiagnosticsResources(cancellationToken);
+
+            foreach (var resource in diagnosticsResources)
             {
-                var dr = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(cancellationToken);
-                dr.ResetDiagnosticsData();
+                resource.ResetDiagnosticsData();
             }
 
             _task = NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(async () =>
@@ -56,90 +54,77 @@ namespace NuGet.PackageManagement.UI
                 while (!_cts.Token.IsCancellationRequested)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(5.5), _cts.Token);
-                    await RetrieveDiagnosticsWarningsAsync();
+                    await RetrieveDiagnosticMessagesAsync(
+                        diagnosticsResources.Select(r => r.PackageSourceDiagnostics),
+                        _cts.Token);
                 }
             });
         }
 
-        private async Task RetrieveDiagnosticsWarningsAsync()
+        private async Task<List<PackageSourceDiagnosticsResource>> GetDiagnosticsResources(CancellationToken cancellationToken)
         {
+            var diagnosticsSources = new List<PackageSourceDiagnosticsResource>();
+
             foreach (var sourceRepository in _activeSources)
             {
-                var dr = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(_cts.Token);
-                var d = dr.PackageSourceDiagnostics;
-                var diagnosticMessages = d.DiagnosticMessages.ToArray();
-                if (diagnosticMessages.Length > 0)
-                {
-                    await ProcessDiagnosticsMessagesAsync(sourceRepository.PackageSource, diagnosticMessages);
-                }
+                var dr = await sourceRepository.GetResourceAsync<PackageSourceDiagnosticsResource>(
+                    cancellationToken);
+                diagnosticsSources.Add(dr);
             }
+
+            return diagnosticsSources;
         }
 
-        private async Task ProcessDiagnosticsMessagesAsync(
-            PackageSource packageSource,
-            IEnumerable<DiagnosticMessage> diagnosticMessages)
+        private async Task RetrieveDiagnosticMessagesAsync(IEnumerable<IPackageSourceDiagnostics> diagnosticsSources, CancellationToken token)
         {
-            await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(token);
 
-            foreach (var msg in diagnosticMessages)
+            foreach (var diagnosticMessage in diagnosticsSources.SelectMany(d => d.DiagnosticMessages))
             {
-                _logger.Log(MessageLevel.Warning, $"[PSD] {msg.Details}");
-            }
-
-            var warnings = diagnosticMessages.Select(m => Convert(m.SourceStatus));
-            var reportedWarnings = _warnings
-                .Where(w => w.PackageSource == packageSource)
-                .Select(w => w.WarningCode);
-            var newWarnings = warnings
-                .Except(reportedWarnings)
-                .ToArray();
-
-            foreach(var warning in newWarnings)
-            {
-                _warnings.Add(new DiagnosticsWarning
+                foreach (var observer in _observers)
                 {
-                    PackageSource = packageSource,
-                    WarningCode = warning
-                });
-
-                _actionEventSink.OnWarning($"{packageSource.Name} performance warning. {warning}.");
+                    observer.OnNext(diagnosticMessage);
+                }
             }
 
             // Go off the UI thread to perform non-UI operations
             await TaskScheduler.Default;
         }
 
-        private static string Convert(SourceStatus sourceStatus)
-        {
-            switch (sourceStatus)
-            {
-                case SourceStatus.SlowSource:
-                    return "Source is slow.";
-                case SourceStatus.UnavailableSource:
-                    return "Source is not available";
-                case SourceStatus.UnreliableSource:
-                    return "Source is not reliable";
-                case SourceStatus.UnresponsiveSource:
-                    return "Source is not responsive";
-            }
-
-            throw new ArgumentException("Unexpected source status", nameof(sourceStatus));
-        }
-
-        private readonly List<DiagnosticsWarning> _warnings = new List<DiagnosticsWarning>();
-
-        private class DiagnosticsWarning
-        {
-            public PackageSource PackageSource { get; set; }
-            public string WarningCode { get; set; }
-        }
-
         public async Task StopAsync(CancellationToken cancellationToken)
         {
             _cts.Cancel();
             await _task?.JoinAsync(cancellationToken);
+        }
 
-            await RetrieveDiagnosticsWarningsAsync();
+        public IDisposable Subscribe(IObserver<DiagnosticMessage> observer)
+        {
+            if (!_observers.Contains(observer))
+            {
+                _observers.Add(observer);
+            }
+
+            return new Unsubscriber(() => _observers.Remove(observer));
+        }
+
+        private class Unsubscriber : IDisposable
+        {
+            private readonly Action _unsubscribeAction;
+
+            public Unsubscriber(Action unsubscribeAction)
+            {
+                if (unsubscribeAction == null)
+                {
+                    throw new ArgumentNullException(nameof(unsubscribeAction));
+                }
+
+                _unsubscribeAction = unsubscribeAction;
+            }
+
+            public void Dispose()
+            {
+                _unsubscribeAction();
+            }
         }
     }
 }
