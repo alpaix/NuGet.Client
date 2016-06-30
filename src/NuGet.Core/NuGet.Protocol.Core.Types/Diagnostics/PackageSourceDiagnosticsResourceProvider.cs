@@ -12,7 +12,7 @@ namespace NuGet.Protocol
 {
     public class PackageSourceDiagnosticsResourceProvider : ResourceProvider
     {
-        private readonly ConcurrentDictionary<PackageSource, PackageSourceDiagnostics> _cache = new ConcurrentDictionary<PackageSource, PackageSourceDiagnostics>();
+        private readonly ConcurrentDictionary<PackageSource, PackageSourceDiagnosticsResource> _cache = new ConcurrentDictionary<PackageSource, PackageSourceDiagnosticsResource>();
 
         public PackageSourceDiagnosticsResourceProvider()
             : base(typeof(PackageSourceDiagnosticsResource))
@@ -21,14 +21,9 @@ namespace NuGet.Protocol
 
         public override Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            var diagnostics = _cache.GetOrAdd(
+            INuGetResource resource = _cache.GetOrAdd(
                 sourceRepository.PackageSource,
-                valueFactory: s => new PackageSourceDiagnostics(s));
-
-            INuGetResource resource = new PackageSourceDiagnosticsResource
-            {
-                PackageSourceDiagnostics = diagnostics
-            };
+                valueFactory: s => new PackageSourceDiagnosticsResource(s));
 
             return Task.FromResult(Tuple.Create(true, resource));
         }

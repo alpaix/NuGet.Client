@@ -87,7 +87,11 @@ namespace StandaloneUI
             var context = contextFactory.Create(@"c:\temp\test\settings.txt", projects);
             var uiController = _uiServiceFactory.Create(
                 context,
-                new NuGetUIProjectContext(new StandaloneUILogger(_textBox, _scrollViewer), _sourceControlManagerProvider, _commonOperations));
+                new NuGetUIProjectContext(
+                    new StandaloneUILogger(_textBox, _scrollViewer), 
+                    new StandaloneActionEventSink(),
+                    _sourceControlManagerProvider, 
+                    _commonOperations));
 
             var model = new PackageManagerModel(uiController, context, isSolution: false, editorFactoryGuid: Guid.Empty);
             model.SolutionName = "test solution";

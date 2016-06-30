@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using NuGet.Common;
 using NuGet.Configuration;
 
 namespace NuGet.Protocol
@@ -17,7 +18,7 @@ namespace NuGet.Protocol
         private static readonly TimeSpan SlowSourceThreshold = TimeSpan.FromSeconds(5.0);
         private static readonly TimeSpan UnresponsiveSourceThreshold = TimeSpan.FromSeconds(5.0);
 
-        private readonly ConcurrentQueue<DiagnosticEvent> _diagnosticEvents = new ConcurrentQueue<DiagnosticEvent>();
+        private ConcurrentQueue<DiagnosticEvent> _diagnosticEvents = new ConcurrentQueue<DiagnosticEvent>();
 
         public PackageSource PackageSource { get; }
 
@@ -40,20 +41,20 @@ namespace NuGet.Protocol
                 {
                     yield return new DiagnosticMessage(
                         SourceStatus.SlowSource,
-                        $"[{PackageSource.Name}] {FormatRate(metrics.SlowRequestsCount, metrics.TotalRequestsCount)} of source requests took more time than expected.");
+                        $"[{PackageSource.Name}] {FormatRate(metrics.SlowRequestsCount, metrics.TotalRequestsCount)} of source requests took more than {DatetimeUtility.ToReadableTimeFormat(SlowSourceThreshold)}.");
                 }
 
                 if (metrics.CancelledRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
-                        SourceStatus.SlowSource,
+                        SourceStatus.UnreliableSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.CancelledRequestsCount, metrics.TotalRequestsCount)} of source requests were cancelled.");
                 }
 
                 if (metrics.FailedRequestsCount > 0)
                 {
                     yield return new DiagnosticMessage(
-                        SourceStatus.SlowSource,
+                        SourceStatus.UnreliableSource,
                         $"[{PackageSource.Name}] {FormatRate(metrics.FailedRequestsCount, metrics.TotalRequestsCount)} of source requests failed.");
                 }
 
@@ -240,6 +241,11 @@ namespace NuGet.Protocol
                     });
 
             return _metrics;
+        }
+
+        public void Reset()
+        {
+            _diagnosticEvents = new ConcurrentQueue<DiagnosticEvent>();
         }
     }
 }

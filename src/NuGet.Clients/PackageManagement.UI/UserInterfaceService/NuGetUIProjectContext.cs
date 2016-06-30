@@ -16,12 +16,18 @@ namespace NuGet.PackageManagement.UI
         private readonly Dispatcher _uiDispatcher;
         private readonly INuGetUILogger _logger;
 
-        public NuGetUIProjectContext(INuGetUILogger logger, ISourceControlManagerProvider sourceControlManagerProvider, ICommonOperations commonOperations)
+        public NuGetUIProjectContext(
+            INuGetUILogger logger, 
+            IActionEventSink eventSink,
+            ISourceControlManagerProvider sourceControlManagerProvider, 
+            ICommonOperations commonOperations)
         {
             _logger = logger;
+            ActionEventSink = eventSink;
             _uiDispatcher = Dispatcher.CurrentDispatcher;
             SourceControlManagerProvider = sourceControlManagerProvider;
             CommonOperations = commonOperations;
+
             if (commonOperations != null)
             {
                 ExecutionContext = new IDEExecutionContext(commonOperations);
@@ -100,5 +106,7 @@ namespace NuGet.PackageManagement.UI
         }
 
         public NuGetActionType ActionType { get; set; }
+
+        public IActionEventSink ActionEventSink { get; }
     }
 }

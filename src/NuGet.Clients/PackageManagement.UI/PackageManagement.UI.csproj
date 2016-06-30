@@ -88,6 +88,7 @@
     <Compile Include="Resources\Resources.xaml.cs">
       <DependentUpon>Resources.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UserInterfaceService\IActionEventSink.cs" />
     <Compile Include="Xamls\RestartRequestBar.xaml.cs">
       <DependentUpon>RestartRequestBar.xaml</DependentUpon>
     </Compile>

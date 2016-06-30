@@ -19,23 +19,17 @@ namespace NuGet.PackageManagement.UI
 {
     public class NuGetUI : INuGetUI
     {
-        private readonly INuGetUIContext _context;
         public const string LogEntrySource = "NuGet Package Manager";
+
+        private readonly INuGetUIContext _context;
+        private readonly NuGetUIProjectContext _projectContext;
 
         public NuGetUI(
             INuGetUIContext context,
             NuGetUIProjectContext projectContext)
         {
             _context = context;
-            ProgressWindow = projectContext;
-
-            // set default values of properties
-            FileConflictAction = FileConflictAction.PromptUser;
-            DependencyBehavior = DependencyBehavior.Lowest;
-            RemoveDependencies = false;
-            ForceRemove = false;
-            Projects = Enumerable.Empty<NuGetProject>();
-            DisplayPreviewWindow = true;
+            _projectContext = projectContext;
         }
 
         public bool PromptForLicenseAcceptance(IEnumerable<PackageLicenseInfo> packages)
@@ -113,60 +107,40 @@ namespace NuGet.PackageManagement.UI
         // TODO: rename it to something like Start
         public void ShowProgressDialog(DependencyObject ownerWindow)
         {
-            ProgressWindow.Start();
-            ProgressWindow.FileConflictAction = FileConflictAction;
+            _projectContext.Start();
+            _projectContext.FileConflictAction = FileConflictAction;
         }
 
         // TODO: rename it to something like End
         public void CloseProgressDialog()
         {
-            ProgressWindow.End();
+            _projectContext.End();
         }
 
         // TODO: rename it
-        public NuGetUIProjectContext ProgressWindow { get; }
+        public INuGetProjectContext ProgressWindow => _projectContext;
 
-        public IEnumerable<NuGetProject> Projects
-        {
-            set;
-            get;
-        }
+        public IActionEventSink ActionEventSink => _projectContext.ActionEventSink;
 
-        public bool DisplayPreviewWindow
-        {
-            set;
-            get;
-        }
+        public ICommonOperations CommonOperations => _projectContext.CommonOperations;
 
-        public FileConflictAction FileConflictAction
-        {
-            set;
-            get;
-        }
+        public IEnumerable<NuGetProject> Projects { set; get; } = Enumerable.Empty<NuGetProject>();
 
-        public DependencyBehavior DependencyBehavior
-        {
-            set;
-            get;
-        }
+        public bool DisplayPreviewWindow { set; get; } = true;
 
-        public bool RemoveDependencies
-        {
-            set;
-            get;
-        }
+        public FileConflictAction FileConflictAction { set; get; } = FileConflictAction.PromptUser;
 
-        public bool ForceRemove
-        {
-            set;
-            get;
-        }
+        public DependencyBehavior DependencyBehavior { set; get; } = DependencyBehavior.Lowest;
+
+        public bool RemoveDependencies { set; get; } = false;
+
+        public bool ForceRemove { set; get; } = false;
 
         public PackageIdentity SelectedPackage { get; set; }
 
         public void OnActionsExecuted(IEnumerable<ResolvedAction> actions)
         {
-            this._context.SolutionManager.OnActionsExecuted(actions);
+            _context.SolutionManager.OnActionsExecuted(actions);
         }
 
         public IEnumerable<SourceRepository> ActiveSources

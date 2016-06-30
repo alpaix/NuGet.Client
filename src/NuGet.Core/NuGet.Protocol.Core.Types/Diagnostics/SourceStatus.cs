@@ -6,6 +6,8 @@ namespace NuGet.Protocol
     public enum SourceStatus
     {
         SlowSource,
+        UnavailableSource,
+        UnreliableSource,
         UnresponsiveSource
     }
 }

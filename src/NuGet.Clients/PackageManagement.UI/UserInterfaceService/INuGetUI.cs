@@ -41,7 +41,11 @@ namespace NuGet.PackageManagement.UI
         /// <summary>
         /// Returns the logging context of the ProgressWindow
         /// </summary>
-        NuGetUIProjectContext ProgressWindow { get; }
+        INuGetProjectContext ProgressWindow { get; }
+
+        IActionEventSink ActionEventSink { get; }
+
+        ICommonOperations CommonOperations { get; }
 
         /// <summary>
         /// Target projects

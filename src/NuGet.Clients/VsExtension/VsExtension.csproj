@@ -65,6 +65,7 @@
     <DeployExtension>True</DeployExtension>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ActionEventSink.cs" />
     <Compile Include="DataStreamFromComStream.cs" />
     <Compile Include="FontAndColorsRegistrationAttribute.cs" />
     <Compile Include="Guids.cs" />

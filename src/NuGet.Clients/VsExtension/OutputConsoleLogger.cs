@@ -114,13 +114,13 @@ namespace NuGetVSExtension
 
         public void ReportError(string message)
         {
-            ErrorTask retargetErrorTask = new ErrorTask();
-            retargetErrorTask.Text = message;
-            retargetErrorTask.ErrorCategory = TaskErrorCategory.Error;
-            retargetErrorTask.Category = TaskCategory.User;
-            retargetErrorTask.Priority = TaskPriority.High;
-            retargetErrorTask.HierarchyItem = null;
-            ErrorListProvider.Tasks.Add(retargetErrorTask);
+            var errorTask = new ErrorTask();
+            errorTask.Text = message;
+            errorTask.ErrorCategory = TaskErrorCategory.Error;
+            errorTask.Category = TaskCategory.User;
+            errorTask.Priority = TaskPriority.High;
+            errorTask.HierarchyItem = null;
+            ErrorListProvider.Tasks.Add(errorTask);
         }
     }
 }

@@ -99,6 +99,8 @@ namespace NuGetVSExtension
         private NuGetSettings _nugetSettings;
 
         private OutputConsoleLogger _outputConsoleLogger;
+        private ActionEventSink _actionEventSink;
+
         private readonly HashSet<Uri> _credentialRequested;
 
         public NuGetPackage()
@@ -296,6 +298,8 @@ namespace NuGetVSExtension
             _dteEvents.OnBeginShutdown += OnBeginShutDown;
 
             _outputConsoleLogger = new OutputConsoleLogger(this);
+            _actionEventSink = new ActionEventSink(this);
+
             SetDefaultCredentialProvider();
 
             if (SolutionManager != null)
@@ -309,6 +313,7 @@ namespace NuGetVSExtension
 
             _uiProjectContext = new NuGetUIProjectContext(
                 _outputConsoleLogger,
+                _actionEventSink,
                 SourceControlManagerProvider,
                 CommonOperations);
 
@@ -356,7 +361,7 @@ namespace NuGetVSExtension
         {
             var credentialService = new CredentialService(
                 GetCredentialProviders(),
-                this._outputConsoleLogger.OutputConsole.WriteLine,
+                _outputConsoleLogger.OutputConsole.WriteLine,
                 nonInteractive: false);
 
             HttpClient.DefaultCredentialProvider = new CredentialServiceAdapter(credentialService);

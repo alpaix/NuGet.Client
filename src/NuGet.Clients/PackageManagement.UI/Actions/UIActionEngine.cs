@@ -12,6 +12,7 @@ using NuGet.Packaging.Core;
 using NuGet.ProjectManagement;
 using NuGet.Protocol.Core.Types;
 using System.Globalization;
+using NuGet.Common;
 
 namespace NuGet.PackageManagement.UI
 {
@@ -76,7 +77,7 @@ namespace NuGet.PackageManagement.UI
                 },
                 (actions) =>
                 {
-                    return ExecuteActionsAsync(actions, uiService.ProgressWindow, userAction, token);
+                    return ExecuteActionsAsync(actions, uiService.ProgressWindow, uiService.CommonOperations, userAction, token);
                 },
                 windowOwner,
                 token);
@@ -199,13 +200,16 @@ namespace NuGet.PackageManagement.UI
             DependencyObject windowOwner,
             CancellationToken token)
         {
-            var worker = new PackageSourceDiagnosticsWorker(uiService);
+            ActivityCorrelationContext.StartNew();
+
+            uiService.ShowProgressDialog(windowOwner);
+            uiService.ActionEventSink.OnActionStarted();
+
+            var worker = PackageSourceDiagnosticsWorker.Create(uiService);
 
             try
             {
-                uiService.ShowProgressDialog(windowOwner);
-
-                worker.Start(token);
+                await worker.RunAsync(token);
 
                 var actions = await resolveActionsAsync();
                 var results = GetPreviewResults(actions);
@@ -255,6 +259,7 @@ namespace NuGet.PackageManagement.UI
                 await worker.StopAsync(token);
 
                 uiService.CloseProgressDialog();
+                uiService.ActionEventSink.OnActionCompleted();
             }
         }
 
@@ -295,14 +300,18 @@ namespace NuGet.PackageManagement.UI
         /// <summary>
         /// Execute the installs/uninstalls
         /// </summary>
-        protected async Task ExecuteActionsAsync(IEnumerable<ResolvedAction> actions,
-            NuGetUIProjectContext projectContext, UserAction userAction, CancellationToken token)
+        private async Task ExecuteActionsAsync(
+            IEnumerable<ResolvedAction> actions,
+            INuGetProjectContext projectContext, 
+            ICommonOperations commonOperations,
+            UserAction userAction, 
+            CancellationToken token)
         {
             var processedDirectInstalls = new HashSet<PackageIdentity>(PackageIdentity.Comparer);
             foreach (var projectActions in actions.GroupBy(e => e.Project))
             {
                 var nuGetProjectActions = projectActions.Select(e => e.Action);
-                var directInstall = GetDirectInstall(nuGetProjectActions, userAction, projectContext.CommonOperations);
+                var directInstall = GetDirectInstall(nuGetProjectActions, userAction, commonOperations);
                 if (directInstall != null
                     && !processedDirectInstalls.Contains(directInstall))
                 {
