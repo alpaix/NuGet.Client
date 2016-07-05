@@ -19,17 +19,22 @@ namespace NuGet.Protocol
         {
         }
 
-        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository source, CancellationToken token)
+        public override async Task<Tuple<bool, INuGetResource>> TryCreate(SourceRepository sourceRepository, CancellationToken token)
         {
-            FindLocalPackagesResource curResource = null;
-            var feedType = await source.GetFeedType(token);
+            INuGetResource resource = null;
+            var feedType = await sourceRepository.GetFeedType(token);
 
             if (feedType == FeedType.FileSystemPackagesConfig)
             {
-                curResource = new FindLocalPackagesResourcePackagesConfig(source.PackageSource.Source);
+                resource = new FindLocalPackagesResourcePackagesConfig(sourceRepository.PackageSource.Source);
+
+                resource = await ProxyResourceFactory.CreateDiagnosticsProxyAsync<FindLocalPackagesProxyResource>(
+                    sourceRepository,
+                    innerResource: resource,
+                    cancellationToken: token);
             }
 
-            return new Tuple<bool, INuGetResource>(curResource != null, curResource);
+            return Tuple.Create(resource != null, resource);
         }
     }
 }

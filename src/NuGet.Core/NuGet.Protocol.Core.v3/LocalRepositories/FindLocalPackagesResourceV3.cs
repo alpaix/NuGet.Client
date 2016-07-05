@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using NuGet.Common;
@@ -11,10 +14,19 @@ namespace NuGet.Protocol
     /// </summary>
     public class FindLocalPackagesResourceV3 : FindLocalPackagesResource
     {
+        private readonly string _root;
+
         public FindLocalPackagesResourceV3(string root)
         {
-            Root = root;
+            if (root == null)
+            {
+                throw new ArgumentNullException(nameof(root));
+            }
+
+            _root = root;
         }
+
+        public override string Root => _root;
 
         public override IEnumerable<LocalPackageInfo> FindPackagesById(string id, ILogger logger, CancellationToken token)
         {

@@ -14,10 +14,19 @@ namespace NuGet.Protocol
     /// </summary>
     public class FindLocalPackagesResourcePackagesConfig : FindLocalPackagesResource
     {
+        private readonly string _root;
+
         public FindLocalPackagesResourcePackagesConfig(string root)
         {
-            Root = root;
+            if (root == null)
+            {
+                throw new ArgumentNullException(nameof(root));
+            }
+
+            _root = root;
         }
+
+        public override string Root => _root;
 
         public override IEnumerable<LocalPackageInfo> FindPackagesById(string id, ILogger logger, CancellationToken token)
         {

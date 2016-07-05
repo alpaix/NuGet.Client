@@ -13,7 +13,7 @@ namespace NuGet.Protocol
 {
     public abstract class FindLocalPackagesResource : INuGetResource
     {
-        public string Root { get; protected set; }
+        public abstract string Root { get; }
 
         public virtual bool Exists(PackageIdentity identity, ILogger logger, CancellationToken token)
         {

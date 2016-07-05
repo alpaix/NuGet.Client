@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,9 +22,18 @@ namespace NuGet.Protocol
         private readonly Lazy<Dictionary<PackageIdentity, LocalPackageInfo>> _index;
         private readonly Lazy<Dictionary<Uri, LocalPackageInfo>> _pathIndex;
 
+        private readonly string _root;
+
+        public override string Root => _root;
+
         public FindLocalPackagesResourceUnzipped(string root)
         {
-            Root = root;
+            if (root == null)
+            {
+                throw new ArgumentNullException(nameof(root));
+            }
+
+            _root = root;
             _packages = new Lazy<IReadOnlyList<LocalPackageInfo>>(() => GetPackagesCore(root));
             _index = new Lazy<Dictionary<PackageIdentity, LocalPackageInfo>>(() => GetIndex(_packages));
             _pathIndex = new Lazy<Dictionary<Uri, LocalPackageInfo>>(() => GetPathIndex(_packages));
