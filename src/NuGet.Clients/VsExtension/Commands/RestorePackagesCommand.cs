@@ -3,7 +3,6 @@
 
 using System;
 using System.ComponentModel.Design;
-using System.Diagnostics;
 using System.Linq;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
