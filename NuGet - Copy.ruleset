@@ -1,31 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<RuleSet Name="NuGet clients code analyser rules" Description="This file contains common code analyzer settings used by all NuGet clients projects. Projects that need specific settings should have their own rule set files that include this one, and then make the neceessary adjustments." ToolsVersion="14.0">
 <RuleSet Name="NuGet Code Analysis Rules" ToolsVersion="14.0">
-  <IncludeAll Action="Hidden" />
-  <Rules AnalyzerId="Microsoft.ApiDesignGuidelines.Analyzers" RuleNamespace="Microsoft.ApiDesignGuidelines.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="Microsoft.CodeAnalysis.Analyzers" RuleNamespace="Microsoft.CodeAnalysis.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="Microsoft.Composition.Analyzers" RuleNamespace="Microsoft.Composition.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="Roslyn.Core" RuleNamespace="Roslyn.Core">
-  </Rules>
-  <Rules AnalyzerId="Roslyn.Diagnostic.Analyzers" RuleNamespace="Roslyn.Diagnostics.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="System.Collections.Immutable.Analyzers" RuleNamespace="System.Collections.Immutable.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="System.Runtime.Analyzers" RuleNamespace="System.Runtime.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="System.Runtime.InteropServices.Analyzers" RuleNamespace="System.Runtime.InteropServices.Analyzers">
-  </Rules>
-  <Rules AnalyzerId="System.Threading.Tasks.Analyzers" RuleNamespace="System.Threading.Tasks.Analyzers">
-    <Rule Id="RS0018" Action="Warning" />
-  </Rules>
-  <Rules AnalyzerId="XmlDocumentationComments.Analyzers" RuleNamespace="XmlDocumentationComments.Analyzers">
-    <Rule Id="RS0010" Action="Warning" />
-  </Rules>
-  <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.Features" RuleNamespace="Microsoft.CodeAnalysis.CSharp.Features">
-  </Rules>
+  <IncludeAll Action="Warning" />
   <Rules AnalyzerId="Microsoft.Analyzers.ManagedCodeAnalysis" RuleNamespace="Microsoft.Rules.Managed">
     <Rule Id="CA1000" Action="Error" />
     <Rule Id="CA1001" Action="Error" />
