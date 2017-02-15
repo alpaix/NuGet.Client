@@ -37,10 +37,11 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>1762</NoWarn>
+    <RunCodeAnalysis Condition=" '$(RunCodeAnalysis)' == ''">false</RunCodeAnalysis>
   </PropertyGroup>
 
   <!-- DEBUG specific configuration settings -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' Or '$(Configuration)' == 'Mono Debug' ">
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -48,7 +49,7 @@
   </PropertyGroup>
 
   <!-- RELEASE specific configuration settings -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' Or '$(Configuration)' == 'Mono Release' ">
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <DefineConstants>TRACE</DefineConstants>
@@ -66,6 +67,7 @@
     <DefineConstants>$(DefineConstants);VS15</DefineConstants>
     <VSSDKRoot>$(EnlistmentRoot)\packages\Microsoft.VSSDK.BuildTools.15.0.26109-RC3</VSSDKRoot>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(VSSDKRoot)\tools</VSToolsPath>
+    <CodeAnalysisRuleSet Condition="'$(CodeAnalysisRuleSet)' == ''">$(EnlistmentRoot)\NuGet.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
 
   <!--Semantic Version-->

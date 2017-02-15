@@ -10,7 +10,6 @@
     <RootNamespace>NuGet.PackageManagement.VisualStudio.Test</RootNamespace>
     <AssemblyName>NuGet.PackageManagement.VisualStudio.Test</AssemblyName>
     <FileAlignment>512</FileAlignment>
-    <CodeAnalysisRuleSet>..\..\..\NuGet.ruleset</CodeAnalysisRuleSet>
     <PackagesDirectory>$(UserProfile)\.nuget\packages</PackagesDirectory>
     <ResolveNuGetPackages>true</ResolveNuGetPackages>
     <SkipValidatePackageReferences>true</SkipValidatePackageReferences>

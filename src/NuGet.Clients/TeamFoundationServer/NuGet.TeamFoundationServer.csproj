@@ -10,7 +10,6 @@
     <RootNamespace>NuGet.TeamFoundationServer</RootNamespace>
     <AssemblyName>NuGet.TeamFoundationServer</AssemblyName>
     <FileAlignment>512</FileAlignment>
-    <CodeAnalysisRuleSet>..\..\..\NuGet.ruleset</CodeAnalysisRuleSet>
     <ResolveNuGetPackages>true</ResolveNuGetPackages>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
   </PropertyGroup>
