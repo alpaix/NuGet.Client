@@ -1,5 +1,6 @@
 ﻿{
   "dependencies": {
+    "Microsoft.ApiDesignGuidelines.Analyzers": "1.2.0-beta2",
     "Microsoft.TeamFoundationServer.ExtendedClient": "15.98.0-preview",
     "Microsoft.VisualStudio.CoreUtility": "15.0.25123-Dev15Preview",
     "Microsoft.VisualStudio.Editor": "15.0.25123-Dev15Preview",
