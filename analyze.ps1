@@ -1,7 +1,14 @@
+[CmdletBinding()]
+param (
+    [ValidateSet("debug", "release")]
+    [Alias('c')]
+    [string]$Configuration = 'Debug',
+    [string]$ReleaseLabel = 'zlocal',
+    [switch]$CI
+)
+
 . "$PSScriptRoot\build\common.ps1"
 
-$Configuration = 'Debug'
-$ReleaseLabel = 'zlocal'
 $BuildNumber = (Get-BuildNumber)
 $ToolsetVersion = 15
 
@@ -25,3 +32,11 @@ Invoke-BuildStep 'Running Code Analysis - VS15 Toolset' {
         } `
         -ToolsetVersion 15
 }
+
+$FilesWithIssues = Select-Xml $reportPath -XPath './/Issue' | select -ExpandProperty Node | %{ Join-Path $_.Path $_.File } | Get-Unique
+
+$LastCommit = git rev-parse --short HEAD
+
+$ChangedFiles = git diff --name-only "$LastCommit^" | %{ Join-Path $NuGetClientRoot $_ }
+
+$ChangedFiles | ?{ $FilesWithIssues -contains $_ }
