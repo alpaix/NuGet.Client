@@ -109,6 +109,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         private static void LoadModules(RunspaceDispatcher runspace)
         {
+#if false
             // We store our PS module file at <extension root>\Modules\NuGet\NuGet.psd1
             string extensionRoot = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string modulePath = Path.Combine(extensionRoot, "Modules", "NuGet", "NuGet.psd1");
@@ -121,6 +122,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             {
                 runspace.ImportModule(functionalTestPath);
             }
+#endif
         }
 
         private static void LoadProfilesIntoRunspace(RunspaceDispatcher runspace)
