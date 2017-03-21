@@ -47,6 +47,23 @@ function New-UwpPackageRefClassLibrary
     }
 }
 
+function New-UwpNativeApp
+{
+    param(
+        [string]$ProjectName,
+        [string]$SolutionFolder
+    )
+
+    if ((Get-VSVersion) -ge '15.0')
+    {
+        New-Project UwpNativeApp $ProjectName $SolutionFolder
+    }
+    else
+    {
+        throw "SKIP: $($_)"
+    }
+}
+
 function New-BuildIntegratedProj
 {
     param(
