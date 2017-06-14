@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -309,14 +309,14 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                                     {
                                         _scriptExecutor.Reset();
 
-                                    // Solution opened event is raised on the UI thread
-                                    // Go off the UI thread before calling likely expensive call of ExecuteInitScriptsAsync
-                                    // Also, it uses semaphores, do not call it from the UI thread
-                                    Task.Run(delegate
-                                            {
-                                                UpdateWorkingDirectory();
-                                                return ExecuteInitScriptsAsync();
-                                            });
+                                        // Solution opened event is raised on the UI thread
+                                        // Go off the UI thread before calling likely expensive call of ExecuteInitScriptsAsync
+                                        // Also, it uses semaphores, do not call it from the UI thread
+                                        Task.Run(delegate
+                                                {
+                                                    UpdateWorkingDirectory();
+                                                    return ExecuteInitScriptsAsync();
+                                                });
                                     };
                                 _solutionManager.SolutionClosed += (o, e) => UpdateWorkingDirectory();
                             }
@@ -464,7 +464,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 // Packages.config projects
                 if (packagesByFramework.Count > 0)
                 {
-                    await ExecuteInitPs1ForPackagesConfig(
+                    await ExecuteInitPs1ForPackagesConfigAsync(
                         packageManager,
                         packagesByFramework,
                         finishedPackages);
@@ -473,7 +473,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 // build integrated projects
                 if (sortedGlobalPackages.Count > 0)
                 {
-                    ExecuteInitPs1ForBuildIntegrated(
+                    await ExecuteInitPs1ForBuildIntegratedAsync(
                         sortedGlobalPackages,
                         finishedPackages);
                 }
@@ -485,7 +485,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             }
         }
 
-        private async Task ExecuteInitPs1ForPackagesConfig(
+        private async Task ExecuteInitPs1ForPackagesConfigAsync(
             NuGetPackageManager packageManager,
             Dictionary<NuGetFramework, HashSet<PackageIdentity>> packagesConfigInstalled,
             HashSet<PackageIdentity> finishedPackages)
@@ -503,7 +503,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
             // Order by the highest framework first to make this deterministic
             // Process each framework/id/version once to avoid duplicate work
-            // Packages may have different dependendcy orders depending on the framework, but there is 
+            // Packages may have different dependendcy orders depending on the framework, but there is
             // no way to fully solve this across an entire solution so we make a best effort here.
             foreach (var framework in packagesConfigInstalled.Keys.OrderByDescending(fw => fw, new NuGetFrameworkSorter()))
             {
@@ -525,7 +525,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                     }
                 }
             }
-            
+
             // Order packages by dependency order
             var sortedPackages = ResolverUtility.TopologicalSort(packagesToSort);
             foreach (var package in sortedPackages)
@@ -537,15 +537,15 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
                     if (string.IsNullOrEmpty(installPath))
                     {
-                        continue;  
+                        continue;
                     }
 
-                    ExecuteInitPs1(installPath, package);
+                    await ExecuteInitPs1Async(installPath, package);
                 }
             }
         }
 
-        private void ExecuteInitPs1ForBuildIntegrated(
+        private async Task ExecuteInitPs1ForBuildIntegratedAsync(
             List<PackageIdentity> sortedGlobalPackages,
             HashSet<PackageIdentity> finishedPackages)
         {
@@ -563,12 +563,12 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                         continue;
                     }
 
-                    ExecuteInitPs1(installPath, package);
+                    await ExecuteInitPs1Async(installPath, package);
                 }
             }
         }
 
-        private void ExecuteInitPs1(string installPath, PackageIdentity identity)
+        private async Task ExecuteInitPs1Async(string installPath, PackageIdentity identity)
         {
             try
             {
@@ -581,6 +581,9 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                     if (File.Exists(scriptPath) &&
                         _scriptExecutor.TryMarkVisited(identity, PackageInitPS1State.FoundAndExecuted))
                     {
+                        // always execute init script from a background thread
+                        await TaskScheduler.Default;
+
                         var request = new ScriptExecutionRequest(scriptPath, installPath, identity, project: null);
 
                         Runspace.Invoke(
