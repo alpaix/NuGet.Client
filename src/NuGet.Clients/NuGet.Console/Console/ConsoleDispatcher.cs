@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
+using Microsoft;
 using Microsoft.VisualStudio.Text;
 using NuGet.Common;
 using NuGet.PackageManagement;
@@ -162,14 +163,14 @@ namespace NuGetConsole.Implementation.Console
             {
                 if (_dispatcher == null)
                 {
-                    IHost host = WpfConsole.Host;
+                    var host = WpfConsole.Host;
 
                     if (host == null)
                     {
                         throw new InvalidOperationException("Can't start Console dispatcher. Host is null.");
                     }
 
-                    if (host is IAsyncHost)
+                    if (host.IsAsync)
                     {
                         _dispatcher = new AsyncHostConsoleDispatcher(this);
                     }
@@ -179,21 +180,21 @@ namespace NuGetConsole.Implementation.Console
                     }
 
                     // capture the cultures to assign to the worker thread below
-                    CultureInfo currentCulture = CultureInfo.CurrentCulture;
-                    CultureInfo currentUICulture = CultureInfo.CurrentUICulture;
+                    var currentCulture = CultureInfo.CurrentCulture;
+                    var currentUICulture = CultureInfo.CurrentUICulture;
 
                     // changed from Task.Factory.StartNew to Task.Run in order to run with
                     // default TaskSchedular instead of current.
                     Task.Run(
                         // gives the host a chance to do initialization works before the console starts accepting user inputs
-                        () =>
+                        async () =>
                             {
                                 // apply the culture of the main thread to this thread so that the PowerShell engine
                                 // will have the same culture as Visual Studio.
                                 Thread.CurrentThread.CurrentCulture = currentCulture;
                                 Thread.CurrentThread.CurrentUICulture = currentUICulture;
 
-                                host.Initialize(WpfConsole);
+                                await host.InitializeAsync(WpfConsole);
                             }
                         ).ContinueWith(
                             task =>
@@ -411,14 +412,10 @@ namespace NuGetConsole.Implementation.Console
                 }
                 _buffer = new Queue<InputLine>();
 
-                IAsyncHost asyncHost = WpfConsole.Host as IAsyncHost;
-                if (asyncHost == null)
-                {
-                    // ConsoleDispatcher is already checking this.
-                    throw new InvalidOperationException();
-                }
+                // ConsoleDispatcher is already checking this.
+                Assumes.True(!WpfConsole.Host.IsAsync);
 
-                asyncHost.ExecuteEnd += _marshaler.AsyncHost_ExecuteEnd;
+                WpfConsole.Host.ExecuteEnd += _marshaler.AsyncHost_ExecuteEnd;
                 PromptNewLine();
             }
 

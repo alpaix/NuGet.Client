@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Threading.Tasks;
 using System.Windows.Media;
 using NuGet.PackageManagement;
 using NuGet.VisualStudio;
@@ -13,25 +14,28 @@ namespace NuGetConsole.Host
     /// </summary>
     internal class UnsupportedHost : IHost
     {
-        public bool IsCommandEnabled
-        {
-            get { return false; }
-        }
+        public bool IsCommandEnabled => false;
 
-        public void Initialize(IConsole console)
+        public event EventHandler ExecuteEnd;
+
+        public Task InitializeAsync(IConsole console)
         {
             // display the error message at the beginning
             console.Write(PowerShell.Resources.Host_PSNotInstalled, Colors.Red, null);
+            return Task.CompletedTask;
         }
 
-        public string Prompt
-        {
-            get { return String.Empty; }
-        }
+        public string Prompt => string.Empty;
 
         public bool Execute(IConsole console, string command, object[] inputs)
         {
+            ExecuteEnd.Raise(this, EventArgs.Empty);
             return false;
+        }
+
+        public Task ExecuteInitScriptsAsync()
+        {
+            return Task.CompletedTask;
         }
 
         public void Abort()
@@ -40,7 +44,7 @@ namespace NuGetConsole.Host
 
         public string ActivePackageSource
         {
-            get { return String.Empty; }
+            get => string.Empty;
             set { }
         }
 
@@ -49,10 +53,7 @@ namespace NuGetConsole.Host
             return new string[0];
         }
 
-        public string DefaultProject
-        {
-            get { return String.Empty; }
-        }
+        public string DefaultProject => string.Empty;
 
         public void SetDefaultProjectIndex(int index)
         {
@@ -67,10 +68,6 @@ namespace NuGetConsole.Host
         {
         }
 
-        public PackageManagementContext PackageManagementContext
-        {
-            get { return null; }
-            set { }
-        }
+        public bool IsAsync => false;
     }
 }

@@ -1,15 +1,14 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Concurrent;
+using System.ComponentModel.Composition;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
-using EnvDTE;
-using EnvDTE80;
 using Microsoft.PowerShell;
 using NuGet.PackageManagement;
 using NuGet.Protocol.Core.Types;
@@ -17,12 +16,20 @@ using NuGet.VisualStudio;
 
 namespace NuGetConsole.Host.PowerShell.Implementation
 {
+    [Export(typeof(IRunspaceManager))]
+    [PartCreationPolicy(CreationPolicy.Shared)]
     internal class RunspaceManager : IRunspaceManager
     {
         // Cache Runspace by name. There should be only one Runspace instance created though.
         private readonly ConcurrentDictionary<string, Tuple<RunspaceDispatcher, NuGetPSHost>> _runspaceCache = new ConcurrentDictionary<string, Tuple<RunspaceDispatcher, NuGetPSHost>>();
 
         public const string ProfilePrefix = "NuGet";
+
+        [ImportingConstructor]
+        public RunspaceManager()
+        {
+
+        }
 
         public Tuple<RunspaceDispatcher, NuGetPSHost> GetRunspace(IConsole console, string hostName)
         {
@@ -35,7 +42,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             Justification = "We can't dispose it if we want to return it.")]
         private static Tuple<RunspaceDispatcher, NuGetPSHost> CreateAndSetupRunspace(IConsole console, string hostName)
         {
-            Tuple<RunspaceDispatcher, NuGetPSHost> runspace = CreateRunspace(console, hostName);
+            var runspace = CreateRunspace(console, hostName);
             SetupExecutionPolicy(runspace.Item1);
             LoadModules(runspace.Item1);
             LoadProfilesIntoRunspace(runspace.Item1);
@@ -49,13 +56,13 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             Justification = "We can't dispose it if we want to return it.")]
         private static Tuple<RunspaceDispatcher, NuGetPSHost> CreateRunspace(IConsole console, string hostName)
         {
-            DTE dte = ServiceLocator.GetInstance<DTE>();
+            var dte = ServiceLocator.GetInstance<EnvDTE.DTE>();
 
-            InitialSessionState initialSessionState = InitialSessionState.CreateDefault();
+            var initialSessionState = InitialSessionState.CreateDefault();
             initialSessionState.Variables.Add(
                 new SessionStateVariableEntry(
                     "DTE",
-                    (DTE2)dte,
+                    (EnvDTE80.DTE2)dte,
                     "Visual Studio DTE automation object",
                     ScopedItemOptions.AllScope | ScopedItemOptions.Constant)
                 );
@@ -91,13 +98,13 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         private static void SetupExecutionPolicy(RunspaceDispatcher runspace)
         {
-            ExecutionPolicy policy = runspace.GetEffectiveExecutionPolicy();
+            var policy = runspace.GetEffectiveExecutionPolicy();
             if (policy != ExecutionPolicy.Unrestricted &&
                 policy != ExecutionPolicy.RemoteSigned &&
                 policy != ExecutionPolicy.Bypass)
             {
-                ExecutionPolicy machinePolicy = runspace.GetExecutionPolicy(ExecutionPolicyScope.MachinePolicy);
-                ExecutionPolicy userPolicy = runspace.GetExecutionPolicy(ExecutionPolicyScope.UserPolicy);
+                var machinePolicy = runspace.GetExecutionPolicy(ExecutionPolicyScope.MachinePolicy);
+                var userPolicy = runspace.GetExecutionPolicy(ExecutionPolicyScope.UserPolicy);
 
                 if (machinePolicy == ExecutionPolicy.Undefined && userPolicy == ExecutionPolicy.Undefined)
                 {
@@ -109,12 +116,12 @@ namespace NuGetConsole.Host.PowerShell.Implementation
         private static void LoadModules(RunspaceDispatcher runspace)
         {
             // We store our PS module file at <extension root>\Modules\NuGet\NuGet.psd1
-            string extensionRoot = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string modulePath = Path.Combine(extensionRoot, "Modules", "NuGet", "NuGet.psd1");
+            var extensionRoot = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            var modulePath = Path.Combine(extensionRoot, "Modules", "NuGet", "NuGet.psd1");
             runspace.ImportModule(modulePath);
 
             // provide backdoor to enable function test
-            string functionalTestPath = Environment.GetEnvironmentVariable("NuGetFunctionalTestPath");
+            var functionalTestPath = Environment.GetEnvironmentVariable("NuGetFunctionalTestPath");
             if (functionalTestPath != null
                 && File.Exists(functionalTestPath))
             {
@@ -124,7 +131,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         private static void LoadProfilesIntoRunspace(RunspaceDispatcher runspace)
         {
-            PSCommand[] profileCommands = HostUtilities.GetProfileCommands(ProfilePrefix);
+            var profileCommands = HostUtilities.GetProfileCommands(ProfilePrefix);
             runspace.InvokeCommands(profileCommands);
         }
     }

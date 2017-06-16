@@ -1,23 +1,22 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
-using System.Threading;
-using System.Threading.Tasks;
 using NuGet.PackageManagement.VisualStudio;
 using NuGet.VisualStudio;
 
-namespace NuGetConsole.Host.PowerShell.Implementation
+namespace NuGetConsole.Host.PowerShell
 {
-    internal class AsyncPowerShellHost : PowerShellHost, IAsyncHost
+    internal class AsyncPowerShellHost : PowerShellHost
     {
-        public event EventHandler ExecuteEnd;
+        public override bool IsAsync => true;
+        public override event EventHandler ExecuteEnd;
 
-        public AsyncPowerShellHost(string name, IRestoreEvents restoreEvents, IRunspaceManager runspaceManager)
-            : base(name, restoreEvents, runspaceManager)
+        public AsyncPowerShellHost(IRestoreEvents restoreEvents, IRunspaceManager runspaceManager)
+            : base(restoreEvents, runspaceManager)
         {
         }
 
@@ -28,7 +27,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
             try
             {
-                Pipeline pipeline = Runspace.InvokeAsync(fullCommand, inputs, true, (sender, e) =>
+                var pipeline = Runspace.InvokeAsync(fullCommand, inputs, true, (sender, e) =>
                     {
                         switch (e.PipelineStateInfo.State)
                         {
@@ -40,7 +39,6 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                                     ReportError(e.PipelineStateInfo.Reason);
                                 }
 
-                                OnExecuteCommandEnd();
                                 ExecuteEnd.Raise(this, EventArgs.Empty);
                                 break;
                         }
@@ -61,16 +59,6 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             }
 
             return false; // Error occurred, command not executing
-        }
-
-        protected override Task<string[]> GetExpansionsAsyncCore(string line, string lastWord, CancellationToken token)
-        {
-            return GetExpansionsAsyncCore(line, lastWord, isSync: false, token: token);
-        }
-
-        protected override Task<SimpleExpansion> GetPathExpansionsAsyncCore(string line, CancellationToken token)
-        {
-            return GetPathExpansionsAsyncCore(line, isSync: false, token: token);
         }
     }
 }

@@ -67,7 +67,6 @@
     <Compile Include="NuGetHostRawUserInterface.cs" />
     <Compile Include="NuGetHostUserInterface.cs" />
     <Compile Include="PowerShellHost.cs" />
-    <Compile Include="PowerShellHostService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -108,7 +107,7 @@
     <ProjectReference Include="..\NuGet.Console\NuGet.Console.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Scripts\about_NuGet.PackageManagement.PowerShellCmdlets.help.txt"/>
+    <None Include="Scripts\about_NuGet.PackageManagement.PowerShellCmdlets.help.txt" />
     <!-- We copy this xml file to output directory so CI can pick it for localization from artifacts directory
     However, we condition it to only be copied when building the project itself and not the vsix to prevent VSIX 
     from including this file -->
@@ -136,7 +135,7 @@
 
   <Target Name="GetPowerShellCmdletsHelpFile" Returns="@(PowerShellCmdletsHelpFiles)">
     <ItemGroup>
-      <_PowerShellCmdletsHelpFiles Include="$(OutputPath)Scripts\NuGet.PackageManagement.PowerShellCmdlets.dll-Help.xml"/>
+      <_PowerShellCmdletsHelpFiles Include="$(OutputPath)Scripts\NuGet.PackageManagement.PowerShellCmdlets.dll-Help.xml" />
       <PowerShellCmdletsHelpFiles Include="@(_PowerShellCmdletsHelpFiles)">
         <TranslationFile>$(LocalizationRootDirectory)\{Lang}\15\%(_PowerShellCmdletsHelpFiles.Filename)%(_PowerShellCmdletsHelpFiles.Extension).lcl</TranslationFile>    <!--Required: translation file-->
 	      <LciCommentFile>$(LocalizationRootDirectory)\comments\15\%(_PowerShellCmdletsHelpFiles.Filename)%(_PowerShellCmdletsHelpFiles.Extension).lci</LciCommentFile>

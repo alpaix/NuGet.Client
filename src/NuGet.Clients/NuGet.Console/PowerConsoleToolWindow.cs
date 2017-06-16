@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -598,21 +598,17 @@ namespace NuGetConsole.Implementation
                 throw new NotSupportedException(Resources.PackageManagerConsoleBusy);
             }
 
-            if (!String.IsNullOrEmpty(command))
+            if (!string.IsNullOrEmpty(command))
             {
                 WpfConsole.SetExecutionMode(true);
                 // Cast the ToolWindowPane to PowerConsoleToolWindow
                 // Access the IHost from PowerConsoleToolWindow as follows PowerConsoleToolWindow.WpfConsole.Host
                 // Cast IHost to IAsyncHost
                 // Also, register for IAsyncHost.ExecutedEnd and return only when the command is completed
-                IPrivateWpfConsole powerShellConsole = (IPrivateWpfConsole)WpfConsole;
-                IHost host = powerShellConsole.Host;
+                var powerShellConsole = (IPrivateWpfConsole)WpfConsole;
+                var host = powerShellConsole.Host;
 
-                var asynchost = host as IAsyncHost;
-                if (asynchost != null)
-                {
-                    asynchost.ExecuteEnd += PowerConsoleCommand_ExecuteEnd;
-                }
+                host.ExecuteEnd += PowerConsoleCommand_ExecuteEnd;
 
                 // Here, we store the snapshot of the powershell Console output text buffer
                 // Snapshot has reference to the buffer and the current length of the buffer
@@ -647,7 +643,7 @@ namespace NuGetConsole.Implementation
                 _previousPosition = _snapshot.Length;
             }
 
-            (sender as IAsyncHost).ExecuteEnd -= PowerConsoleCommand_ExecuteEnd;
+            (sender as IHost).ExecuteEnd -= PowerConsoleCommand_ExecuteEnd;
             WpfConsole.SetExecutionMode(false);
 
             // This does NOT imply that the command succeeded. It just indicates that the console is ready for input now

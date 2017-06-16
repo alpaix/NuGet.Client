@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Threading.Tasks;
 using NuGet.PackageManagement;
 
 namespace NuGet.VisualStudio
@@ -20,7 +21,7 @@ namespace NuGet.VisualStudio
         /// Do initialization work before the specified console accepts user inputs.
         /// </summary>
         /// <param name="console">The console requesting the initialization.</param>
-        void Initialize(IConsole console);
+        Task InitializeAsync(IConsole console);
 
         /// <summary>
         /// Sets the default runspace from the console
@@ -46,14 +47,17 @@ namespace NuGet.VisualStudio
         bool Execute(IConsole console, string command, object[] inputs);
 
         /// <summary>
+        /// Execute init scripts from installed packages on this host.
+        /// </summary>
+        Task ExecuteInitScriptsAsync();
+
+        /// <summary>
         /// Abort the current execution if this host is executing a command, or discard currently
         /// constructing multiple-line command if any.
         /// </summary>
         void Abort();
 
         string ActivePackageSource { get; set; }
-
-        PackageManagementContext PackageManagementContext { get; set; }
 
         string[] GetPackageSources();
 
@@ -62,14 +66,9 @@ namespace NuGet.VisualStudio
         void SetDefaultProjectIndex(int index);
 
         string[] GetAvailableProjects();
-    }
 
-    /// <summary>
-    /// Represents a command host that executes commands asynchronously. The console depends on
-    /// ExecuteEnd event to detect end of command execution.
-    /// </summary>
-    public interface IAsyncHost : IHost
-    {
+        bool IsAsync { get; }
+
         /// <summary>
         /// Occurs when an async command execution is completed, disregarding if it succeeded, failed or
         /// aborted. The console depends on this event to prompt for next user input.

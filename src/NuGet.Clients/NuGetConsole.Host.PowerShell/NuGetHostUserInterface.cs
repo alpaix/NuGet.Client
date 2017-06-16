@@ -15,7 +15,7 @@ using System.Text;
 using System.Windows.Media;
 using NuGet.VisualStudio;
 
-namespace NuGetConsole.Host.PowerShell.Implementation
+namespace NuGetConsole.Host.PowerShell
 {
     internal class NuGetHostUserInterface : PSHostUserInterface, IHostUISupportsMultipleChoiceSelection
     {

@@ -1,11 +1,12 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.ComponentModel.Composition;
 using System.Runtime.CompilerServices;
+using Microsoft;
 using NuGet.VisualStudio;
-using NuGetConsole.Host.PowerShell.Implementation;
+using NuGetConsole.Host.PowerShell;
 
 namespace NuGetConsole.Host
 {
@@ -21,27 +22,24 @@ namespace NuGetConsole.Host
         /// </remarks>
         public const string HostName = "NuGetConsole.Host.PowerShell";
 
-        /// <summary>
-        /// This PowerShell host name. Used for PowerShell "$host".
-        /// </summary>
-        public const string PowerConsoleHostName = "Package Manager Host";
-
+        private readonly IRunspaceManager _runspaceManager;
         private readonly IRestoreEvents _restoreEvents;
         
         [ImportingConstructor]
-        public PowerShellHostProvider(IRestoreEvents restoreEvents)
+        public PowerShellHostProvider(
+            IRunspaceManager runspaceManager,
+            IRestoreEvents restoreEvents)
         {
-            if (restoreEvents == null)
-            {
-                throw new ArgumentNullException(nameof(restoreEvents));
-            }
+            Assumes.Present(runspaceManager);
+            Assumes.Present(restoreEvents);
 
+            _runspaceManager = runspaceManager;
             _restoreEvents = restoreEvents;
         }
 
         public IHost CreateHost(bool @async)
         {
-            bool isPowerShell2Installed = RegistryHelper.CheckIfPowerShell2OrAboveInstalled();
+            var isPowerShell2Installed = RegistryHelper.CheckIfPowerShell2OrAboveInstalled();
             if (isPowerShell2Installed)
             {
                 return CreatePowerShellHost(@async);
@@ -50,16 +48,26 @@ namespace NuGetConsole.Host
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private IHost CreatePowerShellHost(bool @async)
+        private IHost CreatePowerShellHost(bool isAsync)
         {
             // backdoor: allow turning off async mode by setting enviroment variable NuGetSyncMode=1
-            string syncModeFlag = Environment.GetEnvironmentVariable("NuGetSyncMode", EnvironmentVariableTarget.User);
+            var syncModeFlag = Environment.GetEnvironmentVariable("NuGetSyncMode", EnvironmentVariableTarget.User);
             if (syncModeFlag == "1")
             {
-                @async = false;
+                isAsync = false;
             }
 
-            return PowerShellHostService.CreateHost(PowerConsoleHostName, _restoreEvents, @async);
+            IHost host;
+            if (isAsync)
+            {
+                host = new AsyncPowerShellHost(_restoreEvents, _runspaceManager);
+            }
+            else
+            {
+                host = new SyncPowerShellHost(_restoreEvents, _runspaceManager);
+            }
+
+            return host;
         }
     }
 }

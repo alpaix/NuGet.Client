@@ -1,23 +1,22 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Threading;
-using System.Threading.Tasks;
 using NuGet.PackageManagement.VisualStudio;
 using NuGet.VisualStudio;
 
-namespace NuGetConsole.Host.PowerShell.Implementation
+namespace NuGetConsole.Host.PowerShell
 {
     internal class SyncPowerShellHost : PowerShellHost
     {
-        public SyncPowerShellHost(string name, IRestoreEvents restoreEvents, IRunspaceManager runspaceManager)
-            : base(name, restoreEvents, runspaceManager)
+        public override bool IsAsync => false;
+        public override event EventHandler ExecuteEnd;
+
+        public SyncPowerShellHost(IRestoreEvents restoreEvents, IRunspaceManager runspaceManager)
+            : base(restoreEvents, runspaceManager)
         {
         }
 
-        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
         protected override bool ExecuteHost(string fullCommand, string command, params object[] inputs)
         {
             SetPrivateDataOnHost(true);
@@ -25,7 +24,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             try
             {
                 Runspace.Invoke(fullCommand, inputs, true);
-                OnExecuteCommandEnd();
+                ExecuteEnd.Raise(this, EventArgs.Empty);
             }
             catch (Exception e)
             {
@@ -34,16 +33,6 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             }
 
             return true;
-        }
-
-        protected override Task<string[]> GetExpansionsAsyncCore(string line, string lastWord, CancellationToken token)
-        {
-            return GetExpansionsAsyncCore(line, lastWord, isSync: true, token: token);
-        }
-
-        protected override Task<SimpleExpansion> GetPathExpansionsAsyncCore(string line, CancellationToken token)
-        {
-            return GetPathExpansionsAsyncCore(line, isSync: true, token: token);
         }
     }
 }

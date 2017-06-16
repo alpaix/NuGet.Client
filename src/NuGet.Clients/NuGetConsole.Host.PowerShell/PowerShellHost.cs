@@ -1,9 +1,10 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -14,10 +15,9 @@ using System.Management.Automation.Runspaces;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
-using EnvDTE;
 using Microsoft;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
-using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Frameworks;
 using NuGet.PackageManagement;
@@ -29,33 +29,36 @@ using NuGet.ProjectManagement.Projects;
 using NuGet.Protocol.Core.Types;
 using NuGet.Resolver;
 using NuGet.VisualStudio;
-using ThreadHelper = Microsoft.VisualStudio.Shell.ThreadHelper;
+using Task = System.Threading.Tasks.Task;
 
-namespace NuGetConsole.Host.PowerShell.Implementation
+namespace NuGetConsole.Host.PowerShell
 {
     internal abstract class PowerShellHost : IHost, IPathExpansion, IDisposable
     {
+        /// <summary>
+        /// This PowerShell host name. Used for PowerShell "$host".
+        /// </summary>
+        private const string PowerConsoleHostName = "Package Manager Host";
+
+        private const string ActivePackageSourceKey = "activePackageSource";
+        private const string SyncModeKey = "IsSyncMode";
+        private const string DTEKey = "DTE";
+        private const string CancellationTokenKey = "CancellationTokenKey";
+
         private static readonly string AggregateSourceName = Resources.AggregateSourceName;
 
         private readonly AsyncSemaphore _initScriptsLock = new AsyncSemaphore(1);
-        private readonly string _name;
         private readonly IRestoreEvents _restoreEvents;
         private readonly IRunspaceManager _runspaceManager;
         private readonly ISourceRepositoryProvider _sourceRepositoryProvider;
         private readonly IVsSolutionManager _solutionManager;
         private readonly ISettings _settings;
-        private readonly ISourceControlManagerProvider _sourceControlManagerProvider;
-        private readonly ICommonOperations _commonOperations;
         private readonly IDeleteOnRestartManager _deleteOnRestartManager;
         private readonly IScriptExecutor _scriptExecutor;
-        private const string ActivePackageSourceKey = "activePackageSource";
-        private const string SyncModeKey = "IsSyncMode";
-        private const string PackageManagementContextKey = "PackageManagementContext";
-        private const string DTEKey = "DTE";
-        private const string CancellationTokenKey = "CancellationTokenKey";
+        private readonly AsyncLazy<EnvDTE.DTE> _dte;
+
         private string _activePackageSource;
         private string[] _packageSources;
-        private readonly DTE _dte;
 
         private IConsole _activeConsole;
         private NuGetPSHost _nugetHost;
@@ -97,8 +100,9 @@ namespace NuGetConsole.Host.PowerShell.Implementation
         /// </summary>
         private SolutionRestoredEventArgs _currentRestore = InitialRestore;
 
+        public abstract event EventHandler ExecuteEnd;
 
-        protected PowerShellHost(string name, IRestoreEvents restoreEvents, IRunspaceManager runspaceManager)
+        protected PowerShellHost(IRestoreEvents restoreEvents, IRunspaceManager runspaceManager)
         {
             _restoreEvents = restoreEvents;
             _runspaceManager = runspaceManager;
@@ -110,14 +114,40 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             _deleteOnRestartManager = ServiceLocator.GetInstance<IDeleteOnRestartManager>();
             _scriptExecutor = ServiceLocator.GetInstance<IScriptExecutor>();
 
-            _dte = ServiceLocator.GetInstance<DTE>();
-            _sourceControlManagerProvider = ServiceLocator.GetInstanceSafe<ISourceControlManagerProvider>();
-            _commonOperations = ServiceLocator.GetInstanceSafe<ICommonOperations>();
-            PackageManagementContext = new PackageManagementContext(_sourceRepositoryProvider, _solutionManager,
-                _settings, _sourceControlManagerProvider, _commonOperations);
+            InitializeSources();
 
-            _name = name;
-            IsCommandEnabled = true;
+            _sourceRepositoryProvider.PackageSourceProvider.PackageSourcesChanged += PackageSourceProvider_PackageSourcesChanged;
+            _restoreEvents.SolutionRestoreCompleted += RestoreEvents_SolutionRestoreCompleted;
+        }
+
+        [ImportingConstructor]
+        protected PowerShellHost(
+            [Import(typeof(SVsServiceProvider))]
+            IServiceProvider serviceProvider,
+            IRestoreEvents restoreEvents,
+            IRunspaceManager runspaceManager,
+            ISourceRepositoryProvider sourceRepositoryProvider,
+            IVsSolutionManager vsSolutionManager,
+            ISettings settings,
+            IDeleteOnRestartManager deleteOnRestartManager,
+            IScriptExecutor scriptExecutor)
+        {
+            _restoreEvents = restoreEvents;
+            _runspaceManager = runspaceManager;
+
+            _sourceRepositoryProvider = sourceRepositoryProvider;
+            _solutionManager = vsSolutionManager;
+            _settings = settings;
+            _deleteOnRestartManager = deleteOnRestartManager;
+            _scriptExecutor = scriptExecutor;
+
+            _dte = new AsyncLazy<EnvDTE.DTE>(
+                async () =>
+                {
+                    await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    return serviceProvider.GetDTE();
+                },
+                NuGetUIThreadHelper.JoinableTaskFactory);
 
             InitializeSources();
 
@@ -171,7 +201,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             }
         }
 
-        public bool IsCommandEnabled { get; private set; }
+        public bool IsCommandEnabled { get; private set; } = true;
 
         protected RunspaceDispatcher Runspace { get; private set; }
 
@@ -208,8 +238,6 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             get { return ComplexCommand.IsComplete ? EvaluatePrompt() : ">> "; }
         }
 
-        public PackageManagementContext PackageManagementContext { get; set; }
-
         public string ActivePackageSource
         {
             get { return _activePackageSource; }
@@ -230,6 +258,8 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 return GetDisplayName(_solutionManager.DefaultNuGetProject);
             }
         }
+
+        public abstract bool IsAsync { get; }
 
         #endregion
 
@@ -270,111 +300,108 @@ namespace NuGetConsole.Host.PowerShell.Implementation
         /// Doing all necessary initialization works before the console accepts user inputs
         /// </summary>
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
-        public void Initialize(IConsole console)
+        public async Task InitializeAsync(IConsole console)
         {
-            NuGetUIThreadHelper.JoinableTaskFactory.Run(async delegate
+            ActiveConsole = console;
+
+            if (_initialized.HasValue)
+            {
+                if (_initialized.Value
+                    && console.ShowDisclaimerHeader)
                 {
-                    ActiveConsole = console;
-                    if (_initialized.HasValue)
+                    DisplayDisclaimerAndHelpText();
+                }
+            }
+            else
+            {
+                try
+                {
+                    var result = _runspaceManager.GetRunspace(console, PowerConsoleHostName);
+                    Runspace = result.Item1;
+                    _nugetHost = result.Item2;
+
+                    ExecuteEnd += OnExecuteCommandEnd;
+
+                    _initialized = true;
+
+                    if (console.ShowDisclaimerHeader)
                     {
-                        if (_initialized.Value
-                            && console.ShowDisclaimerHeader)
-                        {
-                            DisplayDisclaimerAndHelpText();
-                        }
+                        DisplayDisclaimerAndHelpText();
                     }
-                    else
+
+                    await UpdateWorkingDirectoryAsync();
+                    await ExecuteInitScriptsAsync();
+
+                    // check if PMC console is actually opened, then only hook to solution load/close events.
+                    if (console is IWpfConsole)
                     {
-                        try
-                        {
-                            var result = _runspaceManager.GetRunspace(console, _name);
-                            Runspace = result.Item1;
-                            _nugetHost = result.Item2;
-
-                            _initialized = true;
-
-                            if (console.ShowDisclaimerHeader)
+                        // Hook up solution events
+                        _solutionManager.SolutionOpened += (o, e) =>
                             {
-                                DisplayDisclaimerAndHelpText();
-                            }
+                                _scriptExecutor.Reset();
 
-                            UpdateWorkingDirectory();
-                            await ExecuteInitScriptsAsync();
-
-                            // check if PMC console is actually opened, then only hook to solution load/close events.
-                            if (console is IWpfConsole)
-                            {
-                                // Hook up solution events
-                                _solutionManager.SolutionOpened += (o, e) =>
-                                    {
-                                        _scriptExecutor.Reset();
-
-                                        // Solution opened event is raised on the UI thread
-                                        // Go off the UI thread before calling likely expensive call of ExecuteInitScriptsAsync
-                                        // Also, it uses semaphores, do not call it from the UI thread
-                                        Task.Run(delegate
-                                                {
-                                                    UpdateWorkingDirectory();
-                                                    return ExecuteInitScriptsAsync();
-                                                });
-                                    };
-                                _solutionManager.SolutionClosed += (o, e) => UpdateWorkingDirectory();
-                            }
-                            _solutionManager.NuGetProjectAdded += (o, e) => UpdateWorkingDirectoryAndAvailableProjects();
-                            _solutionManager.NuGetProjectRenamed += (o, e) => UpdateWorkingDirectoryAndAvailableProjects();
-                            _solutionManager.NuGetProjectUpdated += (o, e) => UpdateWorkingDirectoryAndAvailableProjects();
-                            _solutionManager.NuGetProjectRemoved += (o, e) =>
+                                // Solution opened event is raised on the UI thread
+                                // Go off the UI thread before calling likely expensive call of ExecuteInitScriptsAsync
+                                // Also, it uses semaphores, do not call it from the UI thread
+                                Task.Run(async () =>
                                 {
-                                    UpdateWorkingDirectoryAndAvailableProjects();
-                                    // When the previous default project has been removed, _solutionManager.DefaultNuGetProjectName becomes null
-                                    if (_solutionManager.DefaultNuGetProjectName == null)
-                                    {
-                                        // Change default project to the first one in the collection
-                                        SetDefaultProjectIndex(0);
-                                    }
-                                };
-                            // Set available private data on Host
-                            SetPrivateDataOnHost(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            // catch all exception as we don't want it to crash VS
-                            _initialized = false;
-                            IsCommandEnabled = false;
-                            ReportError(ex);
-
-                            ExceptionHelper.WriteErrorToActivityLog(ex);
-                        }
+                                    await UpdateWorkingDirectoryAsync();
+                                    await ExecuteInitScriptsAsync();
+                                });
+                            };
+                        _solutionManager.SolutionClosed += (o, e) => NuGetUIThreadHelper.JoinableTaskFactory.Run(() => UpdateWorkingDirectoryAsync());
                     }
-                });
+                    _solutionManager.NuGetProjectAdded += (o, e) => UpdateWorkingDirectoryAndAvailableProjects();
+                    _solutionManager.NuGetProjectRenamed += (o, e) => UpdateWorkingDirectoryAndAvailableProjects();
+                    _solutionManager.NuGetProjectUpdated += (o, e) => UpdateWorkingDirectoryAndAvailableProjects();
+                    _solutionManager.NuGetProjectRemoved += (o, e) =>
+                        {
+                            UpdateWorkingDirectoryAndAvailableProjects();
+                            // When the previous default project has been removed, _solutionManager.DefaultNuGetProjectName becomes null
+                            if (_solutionManager.DefaultNuGetProjectName == null)
+                            {
+                                // Change default project to the first one in the collection
+                                SetDefaultProjectIndex(0);
+                            }
+                        };
+                    // Set available private data on Host
+                    SetPrivateDataOnHost(isSync: false);
+                }
+                catch (Exception ex)
+                {
+                    // catch all exception as we don't want it to crash VS
+                    _initialized = false;
+                    IsCommandEnabled = false;
+                    ReportError(ex);
+
+                    ExceptionHelper.WriteErrorToActivityLog(ex);
+                }
+            }
         }
 
         private void UpdateWorkingDirectoryAndAvailableProjects()
         {
-            UpdateWorkingDirectory();
+            NuGetUIThreadHelper.JoinableTaskFactory.Run(() => UpdateWorkingDirectoryAsync());
             GetAvailableProjects();
         }
 
-        private void UpdateWorkingDirectory()
+        private async Task UpdateWorkingDirectoryAsync()
         {
-            NuGetUIThreadHelper.JoinableTaskFactory.Run(async () =>
+            await TaskScheduler.Default;
+
+            if (Runspace.RunspaceAvailability == RunspaceAvailability.Available)
             {
-                await TaskScheduler.Default;
+                // if there is no solution open, we set the active directory to be user profile folder
+                var targetDir = _solutionManager.IsSolutionOpen ?
+                    _solutionManager.SolutionDirectory :
+                    Environment.GetEnvironmentVariable("USERPROFILE");
 
-                if (Runspace.RunspaceAvailability == RunspaceAvailability.Available)
-                {
-                    // if there is no solution open, we set the active directory to be user profile folder
-                    var targetDir = _solutionManager.IsSolutionOpen ?
-                        _solutionManager.SolutionDirectory :
-                        Environment.GetEnvironmentVariable("USERPROFILE");
-
-                    Runspace.ChangePSDirectory(targetDir);
-                }
-            });
+                Runspace.ChangePSDirectory(targetDir);
+            }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "We don't want execution of init scripts to crash our console.")]
-        private async Task ExecuteInitScriptsAsync()
+        public async Task ExecuteInitScriptsAsync()
         {
             // Fix for Bug 1426 Disallow ExecuteInitScripts from being executed concurrently by multiple threads.
             using (await _initScriptsLock.EnterAsync())
@@ -405,11 +432,6 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 // if A -> B, we invoke B's init.ps1 before A's.
 
                 var projects = _solutionManager.GetNuGetProjects().ToList();
-                var packageManager = new NuGetPackageManager(
-                    _sourceRepositoryProvider,
-                    _settings,
-                    _solutionManager,
-                    _deleteOnRestartManager);
 
                 var packagesByFramework = new Dictionary<NuGetFramework, HashSet<PackageIdentity>>();
                 var sortedGlobalPackages = new List<PackageIdentity>();
@@ -465,7 +487,6 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 if (packagesByFramework.Count > 0)
                 {
                     await ExecuteInitPs1ForPackagesConfigAsync(
-                        packageManager,
                         packagesByFramework,
                         finishedPackages);
                 }
@@ -486,10 +507,15 @@ namespace NuGetConsole.Host.PowerShell.Implementation
         }
 
         private async Task ExecuteInitPs1ForPackagesConfigAsync(
-            NuGetPackageManager packageManager,
             Dictionary<NuGetFramework, HashSet<PackageIdentity>> packagesConfigInstalled,
             HashSet<PackageIdentity> finishedPackages)
         {
+            var packageManager = new NuGetPackageManager(
+                _sourceRepositoryProvider,
+                _settings,
+                _solutionManager,
+                _deleteOnRestartManager);
+
             // Get the path to the Packages folder.
             var packagesFolderPath = packageManager.PackagesFolderSourceRepository.PackageSource.Source;
             var packagePathResolver = new PackagePathResolver(packagesFolderPath);
@@ -514,7 +540,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                         var dependencyInfo = await dependencyInfoResource.ResolvePackage(
                             package,
                             framework,
-                            NullLogger.Instance,
+                            NuGet.Common.NullLogger.Instance,
                             CancellationToken.None);
 
                         // This will be null for unrestored packages
@@ -625,22 +651,12 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         public bool Execute(IConsole console, string command, params object[] inputs)
         {
-            if (console == null)
-            {
-                throw new ArgumentNullException(nameof(console));
-            }
-
-            if (command == null)
-            {
-                throw new ArgumentNullException(nameof(command));
-            }
+            Assumes.Present(console);
+            Assumes.Present(command);
 
             // since install.ps1/uninstall.ps1 could depend on init scripts, so we need to make sure
             // to run it once for each solution
-            NuGetUIThreadHelper.JoinableTaskFactory.Run(async () =>
-            {
-                await ExecuteInitScriptsAsync();
-            });
+            NuGetUIThreadHelper.JoinableTaskFactory.Run(() => ExecuteInitScriptsAsync());
 
             NuGetEventTrigger.Instance.TriggerEvent(NuGetEvent.PackageManagerConsoleCommandExecutionBegin);
             ActiveConsole = console;
@@ -658,7 +674,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             return false; // constructing multi-line command
         }
 
-        protected void OnExecuteCommandEnd()
+        private void OnExecuteCommandEnd(object sender, EventArgs e)
         {
             NuGetEventTrigger.Instance.TriggerEvent(NuGetEvent.PackageManagerConsoleCommandExecutionEnd);
 
@@ -685,11 +701,11 @@ namespace NuGetConsole.Host.PowerShell.Implementation
         protected void SetPrivateDataOnHost(bool isSync)
         {
             SetPropertyValueOnHost(SyncModeKey, isSync);
-            SetPropertyValueOnHost(PackageManagementContextKey, PackageManagementContext);
             // "All" aggregate source in a context of PS command means no particular source is preferred,
             // in that case all enabled sources will be picked for a command execution.
             SetPropertyValueOnHost(ActivePackageSourceKey, ActivePackageSource != AggregateSourceName ? ActivePackageSource : string.Empty);
-            SetPropertyValueOnHost(DTEKey, _dte);
+            var dte = NuGetUIThreadHelper.JoinableTaskFactory.Run(_dte.GetValueAsync);
+            SetPropertyValueOnHost(DTEKey, dte);
             SetPropertyValueOnHost(CancellationTokenKey, _token);
         }
 
@@ -697,7 +713,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
         {
             if (_nugetHost != null)
             {
-                PSPropertyInfo property = _nugetHost.PrivateData.Properties[propertyName];
+                var property = _nugetHost.PrivateData.Properties[propertyName];
                 if (property == null)
                 {
                     property = new PSNoteProperty(propertyName, value);
@@ -720,7 +736,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             WriteLine(Resources.Console_DisclaimerText);
             WriteLine();
 
-            WriteLine(String.Format(CultureInfo.CurrentCulture, Resources.PowerShellHostTitle, _nugetHost.Version));
+            WriteLine(string.Format(CultureInfo.CurrentCulture, Resources.PowerShellHostTitle, _nugetHost.Version));
             WriteLine();
 
             WriteLine(Resources.Console_HelpText);
@@ -734,7 +750,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         protected void ReportError(Exception exception)
         {
-            exception = ExceptionUtilities.Unwrap(exception);
+            exception = NuGet.Common.ExceptionUtilities.Unwrap(exception);
             WriteErrorLine(exception.Message);
         }
 
@@ -850,15 +866,10 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         #region ITabExpansion
 
-        public Task<string[]> GetExpansionsAsync(string line, string lastWord, CancellationToken token)
+        public async Task<string[]> GetExpansionsAsync(string line, string lastWord, CancellationToken token)
         {
-            return GetExpansionsAsyncCore(line, lastWord, token);
-        }
+            var isSync = !IsAsync;
 
-        protected abstract Task<string[]> GetExpansionsAsyncCore(string line, string lastWord, CancellationToken token);
-
-        protected async Task<string[]> GetExpansionsAsyncCore(string line, string lastWord, bool isSync, CancellationToken token)
-        {
             // Set the _token object to the CancellationToken passed in, so that the Private Data can be set with this token
             // Powershell cmdlets will pick up the CancellationToken from the private data of the Host, and use it in their calls to NuGetPackageManager
             _token = token;
@@ -889,14 +900,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         #region IPathExpansion
 
-        public Task<SimpleExpansion> GetPathExpansionsAsync(string line, CancellationToken token)
-        {
-            return GetPathExpansionsAsyncCore(line, token);
-        }
-
-        protected abstract Task<SimpleExpansion> GetPathExpansionsAsyncCore(string line, CancellationToken token);
-
-        protected async Task<SimpleExpansion> GetPathExpansionsAsyncCore(string line, bool isSync, CancellationToken token)
+        public async Task<SimpleExpansion> GetPathExpansionsAsync(string line, CancellationToken token)
         {
             // Set the _token object to the CancellationToken passed in, so that the Private Data can be set with this token
             // Powershell cmdlets will pick up the CancellationToken from the private data of the Host, and use it in their calls to NuGetPackageManager
@@ -904,13 +908,13 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             SetPropertyValueOnHost(CancellationTokenKey, _token);
             var simpleExpansion = await Task.Run(() =>
                 {
-                    PSObject expansion = Runspace.Invoke(
+                    var expansion = Runspace.Invoke(
                         "$input|%{$__pc_args=$_}; _TabExpansionPath $__pc_args; Remove-Variable __pc_args -Scope 0",
                         new object[] { line },
                         outputResults: false).FirstOrDefault();
                     if (expansion != null)
                     {
-                        int replaceStart = (int)expansion.Properties["ReplaceStart"].Value;
+                        var replaceStart = (int)expansion.Properties["ReplaceStart"].Value;
                         IList<string> paths = ((IEnumerable<object>)expansion.Properties["Paths"].Value).Select(o => o.ToString()).ToList();
                         return new SimpleExpansion(replaceStart, line.Length - replaceStart, paths);
                     }
@@ -929,6 +933,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         public void Dispose()
         {
+            ExecuteEnd -= OnExecuteCommandEnd;
             _restoreEvents.SolutionRestoreCompleted -= RestoreEvents_SolutionRestoreCompleted;
             _initScriptsLock.Dispose();
             Runspace?.Dispose();

@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -14,7 +14,7 @@ using Microsoft.VisualStudio.Shell;
 using NuGet;
 using PathUtility = NuGet.Common.PathUtility;
 
-namespace NuGetConsole.Host.PowerShell.Implementation
+namespace NuGetConsole.Host.PowerShell
 {
     /// <summary>
     /// Wraps a runspace and protects the invoke method from being called on multiple threads through blocking.
