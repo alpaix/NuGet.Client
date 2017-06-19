@@ -1,8 +1,9 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using EnvDTE;
 using Moq;
@@ -14,6 +15,7 @@ using NuGet.ProjectManagement;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.VisualStudio;
+using Test.Utility;
 using Xunit;
 
 namespace NuGetConsole.Host.PowerShell.Test
@@ -23,18 +25,67 @@ namespace NuGetConsole.Host.PowerShell.Test
         [Fact]
         public async Task ExecuteInitScriptsAsync_Test()
         {
-            var vsSolutionManager = Mock.Of<IVsSolutionManager>();
-            var settings = Mock.Of<ISettings>();
-            var services = new TestHostServices();
-            var host = new TestPowerShellHost(vsSolutionManager, settings, services);
+            using (var vsSolutionManager = new TestVsSolutionManager())
+            {
+                var settings = Mock.Of<ISettings>();
+                var services = new TestHostServices();
+                var host = new TestPowerShellHost(vsSolutionManager, settings, services);
 
-            await host.ExecuteInitScriptsAsync();
+                await host.ExecuteInitScriptsAsync();
+            }
+        }
+    }
+
+    internal class TestVsSolutionManager : TestSolutionManager, IVsSolutionManager
+    {
+        public TestVsSolutionManager()
+            :base(true)
+        {
+
+        }
+
+        public NuGetProject DefaultNuGetProject => throw new NotImplementedException();
+
+        public string DefaultNuGetProjectName { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+        public IEnumerable<IVsProjectAdapter> GetAllVsProjectAdapters()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<NuGetProject> GetOrCreateProjectAsync(Project project, INuGetProjectContext projectContext)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IVsProjectAdapter GetVsProjectAdapter(string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IVsProjectAdapter GetVsProjectAdapter(NuGetProject project)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsAllProjectsNominated()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> IsSolutionFullyLoadedAsync()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<NuGetProject> UpgradeProjectToPackageReferenceAsync(NuGetProject project)
+        {
+            throw new NotImplementedException();
         }
     }
 
     internal class TestHostServices
-        : IServiceProvider
-        , IRestoreEvents
+        : IRestoreEvents
         , IRunspaceManager
         , ISourceRepositoryProvider
         , IDeleteOnRestartManager
@@ -42,7 +93,7 @@ namespace NuGetConsole.Host.PowerShell.Test
         , ISourceControlManagerProvider
         , ICommonOperations
     {
-        public IPackageSourceProvider PackageSourceProvider => throw new NotImplementedException();
+        public IPackageSourceProvider PackageSourceProvider { get; } = Mock.Of<IPackageSourceProvider>();
 
         public event SolutionRestoreCompletedEventHandler SolutionRestoreCompleted;
         public event EventHandler<PackagesMarkedForDeletionEventArgs> PackagesMarkedForDeletionFound;
@@ -89,15 +140,10 @@ namespace NuGetConsole.Host.PowerShell.Test
 
         public IEnumerable<SourceRepository> GetRepositories()
         {
-            throw new NotImplementedException();
+            return Enumerable.Empty<SourceRepository>();
         }
 
         public Tuple<RunspaceDispatcher, NuGetPSHost> GetRunspace(IConsole console, string hostName)
-        {
-            throw new NotImplementedException();
-        }
-
-        public object GetService(Type serviceType)
         {
             throw new NotImplementedException();
         }
@@ -144,7 +190,14 @@ namespace NuGetConsole.Host.PowerShell.Test
             IVsSolutionManager vsSolutionManager,
             ISettings settings,
             TestHostServices services)
-            :base(services, services, services, services, vsSolutionManager, settings, services, services, services, services)
+            :base(
+                 restoreEvents: services,
+                 runspaceManager: services,
+                 sourceRepositoryProvider: services,
+                 vsSolutionManager: vsSolutionManager,
+                 settings: settings,
+                 deleteOnRestartManager: services,
+                 scriptExecutor: services)
         {
 
         }

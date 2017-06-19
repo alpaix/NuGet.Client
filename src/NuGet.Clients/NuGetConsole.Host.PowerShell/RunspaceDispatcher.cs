@@ -1,4 +1,4 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -16,6 +16,11 @@ using PathUtility = NuGet.Common.PathUtility;
 
 namespace NuGetConsole.Host.PowerShell
 {
+    internal interface IRunspaceDispatcher : IDisposable
+    {
+        Collection<PSObject> Invoke(string command, object[] inputs, bool outputResults);
+    }
+
     /// <summary>
     /// Wraps a runspace and protects the invoke method from being called on multiple threads through blocking.
     /// </summary>
@@ -24,7 +29,7 @@ namespace NuGetConsole.Host.PowerShell
     /// block until
     /// the runspace is free. However, it will not block while the pipeline is actually running.
     /// </remarks>
-    internal class RunspaceDispatcher : IDisposable
+    internal class RunspaceDispatcher : IRunspaceDispatcher
     {
         [ThreadStatic]
         private static bool IHaveTheLock;

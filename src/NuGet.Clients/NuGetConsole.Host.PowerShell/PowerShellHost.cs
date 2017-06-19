@@ -42,7 +42,6 @@ namespace NuGetConsole.Host.PowerShell
 
         private const string ActivePackageSourceKey = "activePackageSource";
         private const string SyncModeKey = "IsSyncMode";
-        private const string DTEKey = "DTE";
         private const string CancellationTokenKey = "CancellationTokenKey";
 
         private static readonly string AggregateSourceName = Resources.AggregateSourceName;
@@ -55,7 +54,6 @@ namespace NuGetConsole.Host.PowerShell
         private readonly ISettings _settings;
         private readonly IDeleteOnRestartManager _deleteOnRestartManager;
         private readonly IScriptExecutor _scriptExecutor;
-        private readonly AsyncLazy<EnvDTE.DTE> _dte;
 
         private string _activePackageSource;
         private string[] _packageSources;
@@ -122,8 +120,6 @@ namespace NuGetConsole.Host.PowerShell
 
         [ImportingConstructor]
         protected PowerShellHost(
-            [Import(typeof(SVsServiceProvider))]
-            IServiceProvider serviceProvider,
             IRestoreEvents restoreEvents,
             IRunspaceManager runspaceManager,
             ISourceRepositoryProvider sourceRepositoryProvider,
@@ -140,14 +136,6 @@ namespace NuGetConsole.Host.PowerShell
             _settings = settings;
             _deleteOnRestartManager = deleteOnRestartManager;
             _scriptExecutor = scriptExecutor;
-
-            _dte = new AsyncLazy<EnvDTE.DTE>(
-                async () =>
-                {
-                    await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    return serviceProvider.GetDTE();
-                },
-                NuGetUIThreadHelper.JoinableTaskFactory);
 
             InitializeSources();
 
@@ -704,8 +692,6 @@ namespace NuGetConsole.Host.PowerShell
             // "All" aggregate source in a context of PS command means no particular source is preferred,
             // in that case all enabled sources will be picked for a command execution.
             SetPropertyValueOnHost(ActivePackageSourceKey, ActivePackageSource != AggregateSourceName ? ActivePackageSource : string.Empty);
-            var dte = NuGetUIThreadHelper.JoinableTaskFactory.Run(_dte.GetValueAsync);
-            SetPropertyValueOnHost(DTEKey, dte);
             SetPropertyValueOnHost(CancellationTokenKey, _token);
         }
 
