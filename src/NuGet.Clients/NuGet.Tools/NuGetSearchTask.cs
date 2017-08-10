@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -96,6 +96,7 @@ namespace NuGetVSExtension
         }
 
         [SuppressMessage("Microsoft.Security", "CA2122:DoNotIndirectlyExposeMethodsWithLinkDemands", Justification = "Just to make TeamCity build happy. We don't see any FxCop issue when built locally.")]
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         private OleMenuCommand GetSupportedManagePackageCommand()
         {
             // Call QueryStatus for _managePackageDialogCommand and _managePackageForSolutionDialogCommand below

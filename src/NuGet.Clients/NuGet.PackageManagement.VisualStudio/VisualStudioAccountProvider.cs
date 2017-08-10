@@ -1,16 +1,17 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Client.AccountManagement;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Services.Client.AccountManagement;
-using System.Threading;
-using NuGet.Credentials;
 using NuGet.Configuration;
+using NuGet.Credentials;
 
 namespace NuGet.PackageManagement.VisualStudio
 {
@@ -23,6 +24,7 @@ namespace NuGet.PackageManagement.VisualStudio
         private readonly IAccountManager _accountManager;
         private readonly IInteractiveLoginProvider _loginProvider;
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public VisualStudioAccountProvider()
             //  Loadup the account manager and the account provider so that we can query the keychain.
             : this(ServiceProvider.GlobalProvider.GetService(typeof(SVsAccountManager)) as IAccountManager, new InteractiveLoginProvider())

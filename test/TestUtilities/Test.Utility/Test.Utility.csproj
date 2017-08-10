@@ -34,7 +34,7 @@
     </When>
     <When Condition="$(VisualStudioVersion)=='15.0'">
       <ItemGroup Condition=" '$(TargetFramework)' == 'net46' ">
-        <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="15.0.26201">
+        <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="15.0.26606">
           <PrivateAssets>All</PrivateAssets>
         </PackageReference>
       </ItemGroup>

@@ -1,7 +1,8 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Microsoft.VisualStudio.OLE.Interop;
 
@@ -36,6 +37,7 @@ namespace NuGetVSExtension
             get { return true; }
         }
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public override void Flush()
         {
             if (_comStream != null)
@@ -67,6 +69,7 @@ namespace NuGetVSExtension
             set { Seek(value, SeekOrigin.Begin); }
         }
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public override int Read(byte[] buffer, int offset, int count)
         {
             uint bytesRead = 0;
@@ -88,6 +91,7 @@ namespace NuGetVSExtension
             return (int)bytesRead;
         }
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public override long Seek(long offset, SeekOrigin origin)
         {
             LARGE_INTEGER li = new LARGE_INTEGER();
@@ -98,6 +102,7 @@ namespace NuGetVSExtension
             return (long)ul[0].QuadPart;
         }
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public override void SetLength(long value)
         {
             ULARGE_INTEGER ul = new ULARGE_INTEGER();
@@ -105,6 +110,7 @@ namespace NuGetVSExtension
             _comStream.SetSize(ul);
         }
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public override void Write(byte[] buffer, int offset, int count)
         {
             uint bytesWritten;

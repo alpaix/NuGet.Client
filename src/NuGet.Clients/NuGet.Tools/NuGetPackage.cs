@@ -1,10 +1,11 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Design;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -842,6 +843,7 @@ namespace NuGetVSExtension
         #region IVsPersistSolutionOpts
 
         // Called by the shell when a solution is opened and the SUO file is read.
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public int LoadUserOptions(IVsSolutionPersistence pPersistence, uint grfLoadOpts)
         {
             return SolutionUserOptions.LoadUserOptions(pPersistence, grfLoadOpts);
@@ -855,6 +857,7 @@ namespace NuGetVSExtension
 
         // Called by the shell when the SUO file is saved. The provider calls the shell back to let it
         // know which options keys it will use in the suo file.
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public int SaveUserOptions(IVsSolutionPersistence pPersistence)
         {
             return SolutionUserOptions.SaveUserOptions(pPersistence);

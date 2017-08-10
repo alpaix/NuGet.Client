@@ -24,8 +24,8 @@
     <PackageReference Include="Microsoft.VisualStudio.ComponentModelHost.NuGet" Version="14.0.0.0" />
   </ItemGroup>
   <ItemGroup Condition="'$(VisualStudioVersion)' == '15.0'">
-    <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="15.0.26201" />
-    <PackageReference Include="Microsoft.VisualStudio.ComponentModelHost" Version="15.0.26201" />
+    <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="15.0.26606" />
+    <PackageReference Include="Microsoft.VisualStudio.ComponentModelHost" Version="15.0.26606" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.ComponentModel.Composition" />

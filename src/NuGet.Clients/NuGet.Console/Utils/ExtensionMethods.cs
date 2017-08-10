@@ -1,7 +1,8 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
@@ -40,6 +41,7 @@ namespace NuGetConsole
         /// <summary>
         /// Execute a VS command on the wpfTextView CommandTarget.
         /// </summary>
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         public static void Execute(this IOleCommandTarget target, Guid guidCommand, uint idCommand, object args = null)
         {
             IntPtr varIn = IntPtr.Zero;
