@@ -29,7 +29,6 @@
       <HintPath>$(SolutionPackagesFolder)Microsoft.VisualStudio.Shell.Interop.15.0.DesignTime.15.0.26201\lib\Microsoft.VisualStudio.Shell.Interop.15.0.DesignTime.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
-    <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="15.0.26606" />
     <PackageReference Include="Microsoft.VisualStudio.ComponentModelHost" Version="15.0.26606" />
     <PackageReference Include="Microsoft.VisualStudio.Threading" Version="15.3.83" />
     <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="15.3.83" />

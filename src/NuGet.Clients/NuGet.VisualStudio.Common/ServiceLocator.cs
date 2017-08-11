@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -134,6 +134,7 @@ namespace NuGet.VisualStudio
             return GetServiceProviderFromDTE(dte);
         }
 
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         private static object QueryService(_DTE dte, Type serviceType)
         {
             Debug.Assert(ThreadHelper.CheckAccess());
@@ -163,6 +164,7 @@ namespace NuGet.VisualStudio
         }
 
         [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "The caller is responsible for disposing this")]
+        [SuppressMessage("Microsoft.VisualStudio.Threading.Analyzers", "VSTHRD010", Justification = "NuGet/Home#4833 Baseline")]
         private static IServiceProvider GetServiceProviderFromDTE(_DTE dte)
         {
             Debug.Assert(ThreadHelper.CheckAccess());
